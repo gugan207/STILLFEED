@@ -411,6 +411,10 @@ class AuthViewModel(
         _uiState.update { it.copy(errorMessage = null, passwordError = null, confirmPasswordError = null, emailError = null) }
     }
 
+    fun showErrorMessage(message: String) {
+        _uiState.update { it.copy(errorMessage = message, isLoading = false) }
+    }
+
     companion object {
         fun provideFactory(authRepository: AuthRepository): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {

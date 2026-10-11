@@ -28,7 +28,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import com.stillfeed.app.auth.google.GoogleSignInHelper
+import kotlinx.coroutines.launch
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -64,6 +69,9 @@ fun SignInScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val googleSignInHelper = remember(context) { GoogleSignInHelper(context) }
     var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
@@ -207,7 +215,18 @@ fun SignInScreen(
             GoogleSignInButton(
                 onClick = {
                     focusManager.clearFocus()
-                    viewModel.submitGoogleSignIn()
+                    coroutineScope.launch {
+                        val tokenResult = googleSignInHelper.getGoogleIdToken()
+                        if (tokenResult.isSuccess) {
+                            viewModel.submitGoogleSignIn(tokenResult.getOrThrow())
+                        } else {
+                            val err = tokenResult.exceptionOrNull()
+                            if (err !is GetCredentialCancellationException) {
+                                val msg = err?.message ?: "Google Sign-In failed"
+                                viewModel.showErrorMessage(msg)
+                            }
+                        }
+                    }
                 },
                 isLoading = false,
                 enabled = !uiState.isLoading
