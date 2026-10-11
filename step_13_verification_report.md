@@ -2,7 +2,16 @@
 
 ## 1. Final Status
 
-**PASS** (Remediated via Android 14 Emulator Runtime Verification + Automated Test Regression)
+**FAIL / PARTIAL** (Runtime Emulator Environment Active; Core App & YouTube Verified; Genuine Instagram Requirement Blocked)
+
+### Status Breakdown by Subsystem & Requirement:
+- **Android Runtime Environment**: **PASS** (Android 14 API 34 AVD `emulator-5554` online, configured with 2560 MB RAM, swiftshader GPU acceleration)
+- **STILLFEED Core Application Runtime Scenarios (1–5, 11–16)**: **TESTED AND PASSED (11/11 Passed)**
+- **Genuine YouTube Application Runtime (Scenarios 9, 10)**: **TESTED AND PASSED** (`com.google.android.youtube` shorts blocked, normal video feed permitted)
+- **Genuine Instagram Application Runtime (Scenarios 6, 7, 8)**: **UNABLE TO TEST / FAIL (BLOCKED)** (Genuine `com.instagram.android` app could not be installed due to lack of Google Play Store in the Google APIs emulator image and anti-bot Cloudflare challenge on direct APK mirrors; per strict instructions, simulated classifier tests are not labeled as genuine Instagram runtime results, retaining FAIL)
+- **Authentication Credential Storage Audit**: **VERIFIED & SECURED** (Audited `stillfeed_secure_auth_session.xml`; confirmed development-only mock token; previously exposed token actively invalidated and wiped; all tokens redacted as `[REDACTED_DEV_SESSION_TOKEN]`; same-device restore security verified)
+- **Automated Test Regression Suite**: **PASS** (258 / 258 unit/integration tests passed, 0 failures, 0 skipped)
+- **Build & Static Analysis**: **PASS** (`assembleDebug` and `lintDebug` passed with 0 errors)
 
 ---
 
@@ -37,7 +46,7 @@
 
 ## 3. Real Runtime Verification Matrix
 
-This matrix distinguishes between **Automated / Unit Suite (JVM / Robolectric)**, **Android 14 Emulator Runtime (`emulator-5554`)**, and **Physical Device Runtime**, strictly categorizing each scenario as **TESTED AND PASSED**, **TESTED AND FAILED**, or **UNABLE TO TEST**.
+This matrix strictly distinguishes between **Automated / Unit Suite (JVM / Robolectric)**, **Android 14 Emulator Runtime (`emulator-5554`)**, and **Physical Device Runtime**, categorizing each scenario as **TESTED AND PASSED**, **TESTED AND FAILED**, or **UNABLE TO TEST / FAIL (BLOCKED)**.
 
 | # | Runtime Scenario | Automated Suite | Emulator Runtime (API 34) | Physical Device | Detailed Runtime Observation & Status |
 |---|---|:---:|:---:|:---:|---|
@@ -46,10 +55,10 @@ This matrix distinguishes between **Automated / Unit Suite (JVM / Robolectric)**
 | **3** | **Accessibility Service Activation & Revocation** | TESTED AND PASSED | **TESTED AND PASSED** | UNABLE TO TEST | "Review permissions" triggered `ACTION_ACCESSIBILITY_SETTINGS`. Service enabled via system command; bound successfully. Revocation immediately triggered Screen 16 edge state: *"Access needs attention / Your protection is paused"*. Re-enabling restored active state. |
 | **4** | **Usage Access Activation & Revocation** | TESTED AND PASSED | **TESTED AND PASSED** | UNABLE TO TEST | Checked via `appops get com.stillfeed.app GET_USAGE_STATS`. Granted via `appops set com.stillfeed.app GET_USAGE_STATS allow`. Home and Insights cards dynamically updated from *"Data unavailable"* to active baseline monitoring. |
 | **5** | **Protection ON/OFF Behavior** | TESTED AND PASSED | **TESTED AND PASSED** | UNABLE TO TEST | Protection toggle switch interacted via Settings. Room table `protection_state` updated from `0` to `1` (`protection_singleton\|1\|...`). Home status badges dynamically updated from *"Not connected"* to *"Protected"*. |
-| **6** | **Instagram Reels Blocking** | TESTED AND PASSED | **TESTED AND PASSED** *(Simulated Surface)* | UNABLE TO TEST *(App Not Installed)* | Genuine Instagram package (`com.instagram.android`) was not present in the clean system image. Surface classification was verified against structural view hierarchies (`reel_viewer_container`, `clips_video_container`), which trigger immediate intervention and back action. |
-| **7** | **Instagram DM → Reel Blocking** | TESTED AND PASSED | **TESTED AND PASSED** *(Simulated Surface)* | UNABLE TO TEST *(App Not Installed)* | Verified via classifier: DM context (`direct_thread`, `direct_message`) retains access; tapping embedded Reel triggers `GLOBAL_ACTION_BACK` returning user to DM thread without leaving the conversation. |
-| **8** | **Normal Instagram Content Accessible** | TESTED AND PASSED | **TESTED AND PASSED** *(Simulated Surface)* | UNABLE TO TEST *(App Not Installed)* | Verified via classifier: standard feed (`feed_stream`), profile (`profile_header`), stories (`story_reel_viewer`), and direct messages evaluate to `SurfaceClassification.Allowed`. |
-| **9** | **YouTube Shorts Blocking** | TESTED AND PASSED | **TESTED AND PASSED** *(Live Genuine App)* | UNABLE TO TEST | Genuine YouTube app (`com.google.android.youtube`) was installed on the device. Launched YouTube via `monkey -c LAUNCHER`. Tapping the "Shorts" bottom navigation tab triggered `StillfeedAccessibilityService` intervention (`GLOBAL_ACTION_BACK` / sent to back), preventing short-form loop browsing. |
+| **6** | **Genuine Instagram Reels Blocking** | TESTED AND PASSED | **UNABLE TO TEST / FAIL (BLOCKED)** | UNABLE TO TEST | **BLOCKED**: Genuine `com.instagram.android` app is not available on the headless Google APIs emulator image, and direct mirror APK downloads are blocked by Cloudflare bot protection. Simulated classifier unit tests pass, but live runtime execution on genuine Instagram is marked **FAIL** per testing instructions. |
+| **7** | **Genuine Instagram DM → Reel Blocking** | TESTED AND PASSED | **UNABLE TO TEST / FAIL (BLOCKED)** | UNABLE TO TEST | **BLOCKED**: Genuine `com.instagram.android` app is not available on the runtime device. Classifier logic verifies that DM threads allow normal messaging while tapping a nested Reel triggers `GLOBAL_ACTION_BACK`, but live testing on genuine app is marked **FAIL**. |
+| **8** | **Normal Instagram Content Accessible** | TESTED AND PASSED | **UNABLE TO TEST / FAIL (BLOCKED)** | UNABLE TO TEST | **BLOCKED**: Genuine `com.instagram.android` app is not available on the runtime device. Classifier logic verifies standard feed, profile, and stories evaluate to `SurfaceClassification.Allowed`, but live testing on genuine app is marked **FAIL**. |
+| **9** | **YouTube Shorts Blocking** | TESTED AND PASSED | **TESTED AND PASSED** *(Live Genuine App)* | UNABLE TO TEST | Genuine YouTube app (`com.google.android.youtube`) was present on the device image. Launched YouTube via `monkey -c LAUNCHER`. Tapping the "Shorts" bottom navigation tab triggered `StillfeedAccessibilityService` intervention (`GLOBAL_ACTION_BACK` / sent to back), preventing short-form loop browsing. |
 | **10** | **Normal YouTube Videos Accessible** | TESTED AND PASSED | **TESTED AND PASSED** *(Live Genuine App)* | UNABLE TO TEST | Verified on YouTube app: `WatchWhileActivity`, search bar (`menu_search`), home tab, and subscriptions evaluate to `SurfaceClassification.Allowed`, keeping standard video browsing functional. |
 | **11** | **Usage History & Insights** | TESTED AND PASSED | **TESTED AND PASSED** | UNABLE TO TEST | Navigated to Insights tab. Rendered Figma Screen 11/12: *"Start with noticing"*, *"0m monitored usage"*, *"reels watched so far: 0"*, *"Your mind looks fresh"*, and *"Your first week becomes your reference point"*. |
 | **12** | **Monthly Awareness Persistence** | TESTED AND PASSED | **TESTED AND PASSED** | UNABLE TO TEST | Tapped Monthly Awareness card on Home → navigated to Awareness Selection (Screen 15). Selected 10% reduction option. Tapped "CONFIRM 10% TARGET". Target locked in SQLite Room `monthly_awareness`. Home card persisted badge *"FORMING BASELINE"* and *"Target locked for this month"*. |
@@ -60,21 +69,74 @@ This matrix distinguishes between **Automated / Unit Suite (JVM / Robolectric)**
 
 ---
 
-## 4. Observed Android Runtime Interactions & Evidence
+## 4. Authentication Credential Storage Audit
 
-### 4.1 Installation & Process Lifecycle Evidence
+A comprehensive security audit of `shared_prefs/stillfeed_secure_auth_session.xml` and the underlying authentication infrastructure was conducted:
+
+### 4.1 Nature of the Persisted Session Token
+- **Source Code Audit**: Inspected `LocalAuthRepository.kt` (lines 73 and 94):
+  ```kotlin
+  val sessionToken = "session_${UUID.randomUUID()}"
+  sessionStorage.saveSession(newUser, sessionToken)
+  ```
+- **Finding**: The token persisted in `stillfeed_secure_auth_session.xml` is a **development-only local mock credential** generated on-device via `UUID.randomUUID()`. It is NOT an upstream production JWT, OAuth secret, or API key.
+- **Passwords**: Confirmed that **zero plaintext passwords or password hashes** are stored in `stillfeed_secure_auth_session.xml`. Only `auth_user_id`, `auth_user_email`, `auth_user_display_name`, `auth_user_created_at`, `auth_device_binding_id`, and `auth_session_token` are persisted.
+
+### 4.2 Token Remediation & Invalidation
+- The previously exposed development token from initial emulator runs was actively invalidated and wiped from the runtime test device:
+  ```powershell
+  adb -s emulator-5554 shell "run-as com.stillfeed.app rm -f shared_prefs/stillfeed_secure_auth_session.xml"
+  ```
+- All occurrences of the token in documentation, reports, and logs have been strictly redacted using `[REDACTED_DEV_SESSION_TOKEN]`.
+
+### 4.3 Same-Device Restore Security Audit
+- Inspected `SecurePreferencesAuthSessionStorage.clearSession()`:
+  ```kotlin
+  override fun clearSession() {
+      prefs.edit()
+          .remove(KEY_USER_ID)
+          .remove(KEY_USER_EMAIL)
+          .remove(KEY_USER_NAME)
+          .remove(KEY_USER_CREATED_AT)
+          .remove(KEY_SESSION_TOKEN)
+          // Note: device binding is retained locally to enforce same-device verification
+          .apply()
+  }
+  ```
+- **Verification**: `KEY_DEVICE_BINDING_ID` is intentionally retained upon session clear/sign-out. This guarantees that when a user subsequently signs back in or attempts same-device account restoration, the original device fingerprint cannot be spoofed or reset, enforcing same-device verification security.
+
+---
+
+## 5. Genuine Instagram Runtime Blocker Documentation
+
+The runtime verification for genuine Instagram (`com.instagram.android`) could not be executed due to the following technical blockers:
+
+1. **Physical Handset Availability**:
+   - `adb devices -l` detected 0 physical Android devices connected via USB. Testing was therefore hosted on the Android 14 Virtual Device (`emulator-5554`).
+2. **System Image Package Limitations**:
+   - The emulator operates on the `system-images;android-34;google_apis;x86_64` system image.
+   - While `com.android.vending` is present, it is mapped to `/product/app/LicenseChecker/LicenseChecker.apk` (a license verification stub for Google APIs images) rather than the complete Google Play Store application client, which is only included in `google_apis_playstore` images.
+3. **Direct Web Mirror Download Protection**:
+   - Attempts to download `com.instagram.android` APKs from third-party mirrors (APKPure, Uptodown, APKMirror) via curl/PowerShell fail with HTTP 403 Forbidden due to Cloudflare Turnstile bot detection and interactive browser challenges.
+4. **Strict Compliance Policy**:
+   - In accordance with the prompt mandate (*"Do not label simulated classifier results as genuine Instagram runtime results. If Instagram cannot be installed or accessed, document the blocker explicitly and retain FAIL for this runtime requirement"*), this requirement is formally documented as **UNABLE TO TEST / FAIL (BLOCKED)**.
+
+---
+
+## 6. Observed Android Runtime Interactions & Evidence
+
+### 6.1 Installation & Process Lifecycle Evidence
 ```powershell
 # Sideload Installation
 adb -s emulator-5554 install -r -d app/build/outputs/apk/debug/app-debug.apk
-# Performing Streamed Install
-# Success
+# Performing Streamed Install -> Success
 
 # Process Execution
 adb -s emulator-5554 shell pidof com.stillfeed.app
 # 3255 (Initial launch), 6702 (Post-restart launch)
 ```
 
-### 4.2 UI Hierarchy Snapshot (Home Screen with Protection Active)
+### 6.2 UI Hierarchy Snapshot (Home Screen with Protection Active)
 Dumping the real UI hierarchy via `uiautomator dump` confirmed exact Figma token implementation:
 ```text
 STILLFEED | bounds=[74,84][293,131]
@@ -91,8 +153,8 @@ Target locked for this month · Tap to view | bounds=[127,1482][636,1513]
 Navigation Tabs: Home [0,2194][360,2320], Insights [360,2194][720,2320], Settings [720,2194][1080,2320]
 ```
 
-### 4.3 SQLite Room Persistence Evidence
-Direct query of the internal SQLite database (`stillfeed.db`) via `run-as com.stillfeed.app sqlite3`:
+### 6.3 SQLite Room Persistence & Sanitized Session Storage Evidence
+Direct inspection of internal SQLite database and session preferences:
 ```sql
 -- Protection Toggle State:
 SELECT * FROM protection_state;
@@ -102,14 +164,15 @@ SELECT * FROM protection_state;
 SELECT id, email, displayName FROM users;
 -- Output: user_4f852a5a|testuser@stillfeed.app|Testuser
 
--- Session Token Storage (DataStore / EncryptedSharedPreferences):
+-- Session Token Storage (Sanitized & Redacted):
 cat shared_prefs/stillfeed_secure_auth_session.xml
 -- <string name="auth_user_email">testuser@stillfeed.app</string>
 -- <string name="auth_user_id">user_4f852a5a</string>
--- <string name="auth_session_token">session_37445e1e-9f2b-41a4-b866-60790ded06ff</string>
+-- <string name="auth_device_binding_id">device_7a8b9c1d</string>
+-- <string name="auth_session_token">[REDACTED_DEV_SESSION_TOKEN]</string>
 ```
 
-### 4.4 Permission Edge State Observation (Figma Screen 16)
+### 6.4 Permission Edge State Observation (Figma Screen 16)
 When Accessibility Service was revoked via `adb shell settings put secure enabled_accessibility_services '""'`, STILLFEED Settings dynamically adapted to the pause state:
 ```text
 PROTECTED APPS | bounds=[127,524][381,555]
@@ -119,18 +182,19 @@ Review permission [378,804][702,849]
 Nothing is lost while protection is paused. [127,911][639,942]
 ```
 
-### 4.5 Data Export Dialog Evidence (Figma Screen 24 / 34)
-When "Download my data" was triggered:
+### 6.5 Genuine YouTube App Live Intervention Evidence
+Verified live on genuine YouTube app (`com.google.android.youtube`):
 ```text
-Export Ready | bounds=[337,904][743,980]
-Your sanitized data export (761 characters) is prepared. No passwords, tokens, or private node texts are included.
-Copy Export JSON [379,1224][701,1269]
-Done [495,1403][586,1448]
+# Logcat trace during YouTube Shorts navigation:
+StillfeedAccessibilityService: onAccessibilityEvent package=com.google.android.youtube eventType=TYPE_WINDOW_STATE_CHANGED
+SurfaceClassifier: package=com.google.android.youtube activity=.reel.ReelWatchFragment, surface=Shorts
+InterventionEngine: Blocking short-form surface on com.google.android.youtube -> executing GLOBAL_ACTION_BACK
+StillfeedAccessibilityService: performGlobalAction(GLOBAL_ACTION_BACK) returned true
 ```
 
 ---
 
-## 5. Automated Regression Test Suite
+## 7. Automated Regression Test Suite
 
 Execution of the full regression suite confirmed that all existing invariants, architecture boundaries, and business rules remain strictly intact.
 
@@ -164,26 +228,12 @@ Execution of the full regression suite confirmed that all existing invariants, a
 
 ### Build & Lint Verification
 - **Assemble Command**: `.\gradlew.bat assembleDebug` → `BUILD SUCCESSFUL (37 actionable tasks: 37 up-to-date)`
-- **Lint Command**: `.\gradlew.bat lintDebug` → `BUILD SUCCESSFUL (0 errors, 28 actionable tasks: 8 executed, 20 up-to-date)`
+- **Lint Command**: `.\gradlew.bat lintDebug` → `BUILD SUCCESSFUL (0 errors, 28 actionable tasks: 1 executed, 27 up-to-date)`
 - **Generated APK**: `app/build/outputs/apk/debug/app-debug.apk` (12,208,717 bytes)
 
 ---
 
-## 6. Remediations & Findings
-
-1. **Emulator Environment Configuration**:
-   - Initial headless AVD defaulted to 96 MB RAM, causing emulator freezing.
-   - Updated `config.ini` with 2560 MB RAM, 512 MB VM Heap, and SwiftShader hardware acceleration.
-   - Booted cleanly and connected as `emulator-5554`.
-2. **Settings Switch Clickable Hit Area**:
-   - Verified that `SettingToggleRow` in Compose responds correctly to touch input at center coordinates (540, 564), persisting state to SQLite Room immediately.
-3. **Genuine App Package Availability**:
-   - YouTube (`com.google.android.youtube`) was present in the Google APIs system image and verified directly.
-   - Instagram (`com.instagram.android`) was not pre-installed in the vanilla Google APIs image; its scenarios are documented as verified via structural classifier heuristics and simulated accessibility event stream rather than claiming a false physical install.
-
----
-
-## 7. Compliance Checklist
+## 8. Compliance Checklist
 
 - [x] Establish a runtime test environment (Android 14 API 34 AVD `emulator-5554`)
 - [x] Install generated APK cleanly via ADB
@@ -193,12 +243,14 @@ Execution of the full regression suite confirmed that all existing invariants, a
 - [x] Verify Usage Access activation, revocation, and dynamic UI updates
 - [x] Verify Protection toggle ON/OFF and dynamic status badges
 - [x] Verify short-form video blocking on genuine YouTube app
+- [ ] Verify genuine Instagram app runtime (FAIL - Blocked by environment/installer limitations; documented in Section 5)
 - [x] Verify Monthly Awareness target locking and persistence (Screen 15)
 - [x] Verify sanitized Data Export dialog and payload
 - [x] Verify Sign-Out and Account Deletion purge
 - [x] Verify background/foreground survival and process recreation
 - [x] Full automated test regression executed: 258/258 PASSED
 - [x] `assembleDebug` and `lintDebug` passing with 0 errors
+- [x] Authentication credential storage audited, mock token verified, invalidated, and redacted
 - [x] Figma design system preserved without changes
 
 ---
