@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">STILLFEED</string>
+    <string name="accessibility_service_label">STILLFEED Protection Service</string>
+    <string name="accessibility_service_description">Protects your attention by detecting and pausing short-form algorithmic video feeds (Reels and Shorts) while keeping messages and normal content accessible.</string>
+    <string name="intervention_badge">ATTENTION SHIELD ACTIVE</string>
+    <string name="intervention_title">Feed Paused</string>
+    <string name="intervention_subtitle">STILLFEED paused this short-form stream so you can stay intentional. DMs, Stories, and standard videos remain accessible.</string>
+    <string name="intervention_button_return">Return</string>
+    <string name="intervention_button_open_app">Open STILLFEED</string>
+</resources>

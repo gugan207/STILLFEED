@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="charcoal">#1F2421</color>
+    <color name="cream">#F5F0E7</color>
+    <color name="card_cream">#FBF8F2</color>
+    <color name="sage">#7D927C</color>
+    <color name="coral">#D8A5A1</color>
+    <color name="sand_divider">#D9D4CA</color>
+    <color name="dark_slate">#252A27</color>
+</resources>

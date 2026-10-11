@@ -1,0 +1,56 @@
+package com.stillfeed.app.feature.navigation
+
+import com.stillfeed.app.core.navigation.Screen
+import com.stillfeed.app.core.ui.components.StillfeedNavDestination
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Test
+
+/**
+ * Tests verifying route definitions and navigation integrity for STEP 09.
+ */
+class HomeNavigationTest {
+
+    @Test
+    fun routes_areDistinctAndValid() {
+        val routes = listOf(
+            Screen.Auth.route,
+            Screen.Bootstrap.route,
+            Screen.Onboarding.route,
+            Screen.Home.route,
+            Screen.AwarenessSelection.route,
+            Screen.Insights.route,
+            Screen.Settings.route
+        )
+
+        // All routes must be non-empty and unique
+        routes.forEach { route ->
+            assertNotNull(route)
+            assert(route.isNotBlank())
+        }
+
+        assertEquals("All screen routes must be unique", routes.size, routes.toSet().size)
+    }
+
+    @Test
+    fun awarenessSelectionRoute_matchesContract() {
+        assertEquals("awareness_selection", Screen.AwarenessSelection.route)
+        assertEquals("home", Screen.Home.route)
+        assertEquals("insights", Screen.Insights.route)
+        assertEquals("settings", Screen.Settings.route)
+    }
+
+    @Test
+    fun bottomNavigationDestinations_containHomeInsightsSettings() {
+        val destinations = StillfeedNavDestination.values().toList()
+        assertEquals(3, destinations.size)
+        assertEquals(StillfeedNavDestination.Home, destinations[0])
+        assertEquals(StillfeedNavDestination.Insights, destinations[1])
+        assertEquals(StillfeedNavDestination.Settings, destinations[2])
+
+        assertEquals("Home", StillfeedNavDestination.Home.label)
+        assertEquals("Insights", StillfeedNavDestination.Insights.label)
+        assertEquals("Settings", StillfeedNavDestination.Settings.label)
+    }
+}

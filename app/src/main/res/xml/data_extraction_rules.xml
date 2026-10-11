@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Explicitly exclude relational history and local auth session from cloud backup.
+             Prevents accidental cross-device history migration. -->
+        <exclude domain="database" path="stillfeed.db" />
+        <exclude domain="sharedpref" path="stillfeed_secure_auth_session.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <!-- Disallow automatic phone-to-phone transfer of local history to enforce same-device restriction -->
+        <exclude domain="database" path="stillfeed.db" />
+        <exclude domain="sharedpref" path="stillfeed_secure_auth_session.xml" />
+    </device-transfer>
+</data-extraction-rules>

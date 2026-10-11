@@ -1,0 +1,26 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+Thumbs.db
+build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+.kotlin/
+
+# Secrets and signing
+*.keystore
+*.jks
+*.p12
+*.pem
+*.key
+.env
+.env.*
+
+# Temporary test dumps
+*_dump.xml
+dump_*.xml
+*.dump

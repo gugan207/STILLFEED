@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Explicitly exclude relational database and session tokens from legacy auto backup -->
+    <exclude domain="database" path="stillfeed.db" />
+    <exclude domain="sharedpref" path="stillfeed_secure_auth_session.xml" />
+</full-backup-content>
