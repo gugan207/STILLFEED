@@ -241,6 +241,7 @@ fun DevAuthScreen(
                     when (authState) {
                         is AuthState.SignedIn -> StillfeedTagBadge(text = "SIGNED IN", type = StillfeedTagType.Kept)
                         is AuthState.SignedOut -> StillfeedTagBadge(text = "SIGNED OUT", type = StillfeedTagType.Blocked)
+                        is AuthState.NeedsEmailVerification -> StillfeedTagBadge(text = "VERIFY EMAIL", type = StillfeedTagType.Blocked)
                         is AuthState.Loading -> Text("Loading...", style = StillfeedTheme.typography.caption)
                         is AuthState.SigningIn -> Text("Signing In...", style = StillfeedTheme.typography.caption)
                         is AuthState.SigningUp -> Text("Signing Up...", style = StillfeedTheme.typography.caption)

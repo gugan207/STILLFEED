@@ -28,6 +28,30 @@ interface AuthRepository {
     suspend fun signUp(email: String, password: CharSequence, displayName: String? = null): Result<AuthUser>
 
     /**
+     * Verify a six-digit email OTP for account registration or authentication.
+     */
+    suspend fun verifyEmailOtp(email: String, token: String): Result<AuthUser> =
+        Result.failure(UnsupportedOperationException("Email OTP verification not supported"))
+
+    /**
+     * Resend the six-digit email OTP.
+     */
+    suspend fun resendOtp(email: String): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Resend OTP not supported"))
+
+    /**
+     * Send password reset recovery link or token.
+     */
+    suspend fun sendPasswordReset(email: String): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Password recovery not supported"))
+
+    /**
+     * Authenticate via Google Sign-In with Google ID token.
+     */
+    suspend fun signInWithGoogle(idToken: String): Result<AuthUser> =
+        Result.failure(UnsupportedOperationException("Google Sign-In not supported"))
+
+    /**
      * Terminate the active authentication session securely.
      */
     suspend fun signOut(): Result<Unit>

@@ -123,6 +123,18 @@ class ProductionAuthRepository(
 
         val response = remoteResult.getOrThrow()
 
+        if (response.requiresEmailVerification) {
+            _authState.value = AuthState.NeedsEmailVerification(normalizedEmail, response.userId)
+            val pendingUser = AuthUser(
+                id = response.userId,
+                email = normalizedEmail,
+                displayName = response.displayName ?: displayName ?: normalizedEmail.substringBefore("@").replaceFirstChar { it.uppercase() },
+                createdAtMillis = System.currentTimeMillis(),
+                deviceBindingId = null
+            )
+            return@withContext Result.success(pendingUser)
+        }
+
         // Bind current device identity upon account creation
         val currentDeviceBinding = deviceBindingRepository.getCurrentBinding()
         val deviceBindingId = currentDeviceBinding.bindingId
@@ -145,6 +157,121 @@ class ProductionAuthRepository(
             id = response.userId,
             email = response.email ?: normalizedEmail,
             displayName = response.displayName ?: displayName ?: normalizedEmail.substringBefore("@").replaceFirstChar { it.uppercase() },
+            createdAtMillis = System.currentTimeMillis(),
+            updatedAtMillis = System.currentTimeMillis(),
+            deviceBindingId = deviceBindingId.ifBlank { null }
+        )
+        userRepository.saveUser(localUser)
+
+        val authUser = AuthUser(
+            id = localUser.id,
+            email = localUser.email,
+            displayName = localUser.displayName,
+            createdAtMillis = localUser.createdAtMillis,
+            deviceBindingId = localUser.deviceBindingId
+        )
+        _authState.value = AuthState.SignedIn(authUser)
+        Result.success(authUser)
+    }
+
+    override suspend fun verifyEmailOtp(email: String, token: String): Result<AuthUser> = withContext(ioDispatcher) {
+        _authState.value = AuthState.Loading
+
+        val normalizedEmail = email.trim().lowercase()
+        val remoteResult = remoteAuthDataSource.verifyEmailOtp(normalizedEmail, token)
+
+        if (remoteResult.isFailure) {
+            val exception = remoteResult.exceptionOrNull() ?: RuntimeException("Verification failed")
+            val authError = mapToAuthError(exception, isSignUp = false)
+            _authState.value = AuthState.Error(authError)
+            return@withContext Result.failure(IllegalArgumentException(authError.userMessage))
+        }
+
+        val response = remoteResult.getOrThrow()
+
+        // Bind current device identity upon verified sign up
+        val currentDeviceBinding = deviceBindingRepository.getCurrentBinding()
+        val deviceBindingId = currentDeviceBinding.bindingId
+        if (deviceBindingId.isNotBlank()) {
+            remoteUserRepository.registerDeviceBinding(response.userId, deviceBindingId)
+        }
+
+        val ttlMillis = response.expiresInSeconds * 1000L
+        val session = AuthSession(
+            userId = response.userId,
+            accessToken = response.accessToken,
+            refreshToken = response.refreshToken,
+            expiresAtMillis = System.currentTimeMillis() + ttlMillis,
+            userEmail = response.email ?: normalizedEmail,
+            deviceBindingId = deviceBindingId.ifBlank { null }
+        )
+        sessionRepository.saveSession(session)
+
+        val localUser = User(
+            id = response.userId,
+            email = response.email ?: normalizedEmail,
+            displayName = response.displayName ?: normalizedEmail.substringBefore("@").replaceFirstChar { it.uppercase() },
+            createdAtMillis = System.currentTimeMillis(),
+            updatedAtMillis = System.currentTimeMillis(),
+            deviceBindingId = deviceBindingId.ifBlank { null }
+        )
+        userRepository.saveUser(localUser)
+
+        val authUser = AuthUser(
+            id = localUser.id,
+            email = localUser.email,
+            displayName = localUser.displayName,
+            createdAtMillis = localUser.createdAtMillis,
+            deviceBindingId = localUser.deviceBindingId
+        )
+        _authState.value = AuthState.SignedIn(authUser)
+        Result.success(authUser)
+    }
+
+    override suspend fun resendOtp(email: String): Result<Unit> = withContext(ioDispatcher) {
+        val normalizedEmail = email.trim().lowercase()
+        remoteAuthDataSource.resendOtp(normalizedEmail)
+    }
+
+    override suspend fun sendPasswordReset(email: String): Result<Unit> = withContext(ioDispatcher) {
+        val normalizedEmail = email.trim().lowercase()
+        remoteAuthDataSource.recoverPassword(normalizedEmail)
+    }
+
+    override suspend fun signInWithGoogle(idToken: String): Result<AuthUser> = withContext(ioDispatcher) {
+        _authState.value = AuthState.SigningIn
+
+        val remoteResult = remoteAuthDataSource.signInWithGoogle(idToken)
+        if (remoteResult.isFailure) {
+            val exception = remoteResult.exceptionOrNull() ?: RuntimeException("Google sign-in failed")
+            val authError = mapToAuthError(exception, isSignUp = false)
+            _authState.value = AuthState.Error(authError)
+            return@withContext Result.failure(IllegalArgumentException(authError.userMessage))
+        }
+
+        val response = remoteResult.getOrThrow()
+
+        val currentDeviceBinding = deviceBindingRepository.getCurrentBinding()
+        val deviceBindingId = currentDeviceBinding.bindingId
+        if (deviceBindingId.isNotBlank()) {
+            remoteUserRepository.registerDeviceBinding(response.userId, deviceBindingId)
+        }
+
+        val ttlMillis = response.expiresInSeconds * 1000L
+        val session = AuthSession(
+            userId = response.userId,
+            accessToken = response.accessToken,
+            refreshToken = response.refreshToken,
+            expiresAtMillis = System.currentTimeMillis() + ttlMillis,
+            userEmail = response.email ?: "",
+            deviceBindingId = deviceBindingId.ifBlank { null }
+        )
+        sessionRepository.saveSession(session)
+
+        val localUser = User(
+            id = response.userId,
+            email = response.email ?: "",
+            displayName = response.displayName ?: "Google User",
             createdAtMillis = System.currentTimeMillis(),
             updatedAtMillis = System.currentTimeMillis(),
             deviceBindingId = deviceBindingId.ifBlank { null }
@@ -222,51 +349,39 @@ class ProductionAuthRepository(
 
         // Active valid session
         val localUser = userRepository.getUser(session.userId)
-        val authUser = if (localUser != null) {
-            AuthUser(
-                id = localUser.id,
-                email = localUser.email,
-                displayName = localUser.displayName,
-                createdAtMillis = localUser.createdAtMillis,
-                deviceBindingId = session.deviceBindingId ?: localUser.deviceBindingId
-            )
-        } else {
-            AuthUser(
-                id = session.userId,
-                email = session.userEmail,
-                displayName = session.userEmail?.substringBefore("@")?.replaceFirstChar { it.uppercase() },
-                deviceBindingId = session.deviceBindingId
-            )
-        }
+        val authUser = AuthUser(
+            id = session.userId,
+            email = session.userEmail ?: localUser?.email ?: "",
+            displayName = localUser?.displayName,
+            createdAtMillis = localUser?.createdAtMillis ?: System.currentTimeMillis(),
+            deviceBindingId = session.deviceBindingId
+        )
         _authState.value = AuthState.SignedIn(authUser)
         Result.success(authUser)
     }
 
     override suspend fun getCurrentUser(): AuthUser? = withContext(ioDispatcher) {
         val session = sessionRepository.getSession() ?: return@withContext null
-        val localUser = userRepository.getUser(session.userId) ?: return@withContext null
+        val localUser = userRepository.getUser(session.userId)
         AuthUser(
-            id = localUser.id,
-            email = localUser.email,
-            displayName = localUser.displayName,
-            createdAtMillis = localUser.createdAtMillis,
-            deviceBindingId = session.deviceBindingId ?: localUser.deviceBindingId
+            id = session.userId,
+            email = session.userEmail ?: localUser?.email ?: "",
+            displayName = localUser?.displayName,
+            createdAtMillis = localUser?.createdAtMillis ?: System.currentTimeMillis(),
+            deviceBindingId = session.deviceBindingId
         )
     }
 
     override suspend fun bindDevice(deviceId: String): Result<AuthUser> = withContext(ioDispatcher) {
         val currentSession = sessionRepository.getSession()
-            ?: return@withContext Result.failure(IllegalStateException("No authenticated user to bind device."))
+            ?: return@withContext Result.failure(IllegalStateException("No active session to bind"))
 
         // Register binding remotely
-        val remoteBindResult = remoteUserRepository.registerDeviceBinding(currentSession.userId, deviceId)
-        if (remoteBindResult.isFailure) {
-            val ex = remoteBindResult.exceptionOrNull() ?: RuntimeException("Remote device binding registration failed")
+        val registerResult = remoteUserRepository.registerDeviceBinding(currentSession.userId, deviceId)
+        if (registerResult.isFailure) {
+            val ex = registerResult.exceptionOrNull() ?: RuntimeException("Remote device binding failed")
             return@withContext Result.failure(ex)
         }
-
-        // Bind locally
-        deviceBindingRepository.bindCurrentDevice(deviceId)
 
         // Update active session
         val updatedSession = currentSession.copy(deviceBindingId = deviceId)
@@ -329,6 +444,12 @@ class ProductionAuthRepository(
             message.contains("network") || message.contains("timeout") || message.contains("connect") || message.contains("unable to connect") -> {
                 AuthError.NetworkFailure()
             }
+            message.contains("otp") || message.contains("expired") || message.contains("token") -> {
+                AuthError.Unknown("That code is incorrect or has expired. Request a new code and try again.")
+            }
+            message.contains("provider") && (message.contains("disabled") || message.contains("not enabled")) -> {
+                AuthError.Unknown("Google Sign-In is awaiting Google OAuth configuration in the Supabase Dashboard. Please sign in with Email or configure Google provider credentials.")
+            }
             message.contains("invalid") || message.contains("credentials") || message.contains("password") || message.contains("not found") -> {
                 if (isSignUp) AuthError.AccountCreationFailed() else AuthError.InvalidCredentials()
             }
@@ -336,7 +457,7 @@ class ProductionAuthRepository(
                 AuthError.Unknown("Malformed response received from authentication service.")
             }
             else -> {
-                if (isSignUp) AuthError.AccountCreationFailed() else AuthError.Unknown()
+                if (isSignUp) AuthError.AccountCreationFailed() else AuthError.Unknown(throwable.message ?: "Authentication failed")
             }
         }
     }

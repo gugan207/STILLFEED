@@ -137,6 +137,51 @@ class LocalAuthRepository(
         Result.success(Unit)
     }
 
+    override suspend fun verifyEmailOtp(email: String, token: String): Result<AuthUser> = withContext(ioDispatcher) {
+        if (token != "123456") {
+            val err = AuthError.InvalidCredentials("That code is incorrect or has expired.")
+            _authState.value = AuthState.Error(err)
+            return@withContext Result.failure(IllegalArgumentException(err.userMessage))
+        }
+        val normalizedEmail = email.trim().lowercase()
+        val user = AuthUser(
+            id = "user_otp_${UUID.randomUUID().toString().take(8)}",
+            email = normalizedEmail,
+            displayName = normalizedEmail.substringBefore("@").replaceFirstChar { it.uppercase() },
+            deviceBindingId = sessionStorage.getDeviceBinding()
+        )
+        val sessionToken = "session_otp_${UUID.randomUUID()}"
+        sessionStorage.saveSession(user, sessionToken)
+        persistUserLocally(user)
+        _authState.value = AuthState.SignedIn(user)
+        Result.success(user)
+    }
+
+    override suspend fun resendOtp(email: String): Result<Unit> = withContext(ioDispatcher) {
+        Result.success(Unit)
+    }
+
+    override suspend fun sendPasswordReset(email: String): Result<Unit> = withContext(ioDispatcher) {
+        Result.success(Unit)
+    }
+
+    override suspend fun signInWithGoogle(idToken: String): Result<AuthUser> = withContext(ioDispatcher) {
+        if (idToken.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Invalid Google ID token"))
+        }
+        val user = AuthUser(
+            id = "google_user_123",
+            email = "google_user@stillfeed.app",
+            displayName = "Google User",
+            deviceBindingId = sessionStorage.getDeviceBinding()
+        )
+        val sessionToken = "session_google_${UUID.randomUUID()}"
+        sessionStorage.saveSession(user, sessionToken)
+        persistUserLocally(user)
+        _authState.value = AuthState.SignedIn(user)
+        Result.success(user)
+    }
+
     override suspend fun refreshSession(): Result<AuthUser?> = withContext(ioDispatcher) {
         _authState.value = AuthState.Loading
         val token = sessionStorage.getSessionToken()

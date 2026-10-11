@@ -28,6 +28,11 @@ sealed interface AuthState {
     data object SigningUp : AuthState
 
     /**
+     * Account created; awaiting six-digit email OTP verification.
+     */
+    data class NeedsEmailVerification(val email: String, val userId: String? = null) : AuthState
+
+    /**
      * User has an active, verified session.
      */
     data class SignedIn(val user: AuthUser) : AuthState

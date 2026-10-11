@@ -118,6 +118,109 @@ class SupabaseHttpClient(
     }
 
     /**
+     * Executes Supabase Auth OTP verification (/auth/v1/verify).
+     * Used for confirming email address or verifying magic link tokens.
+     */
+    suspend fun authVerifyOtp(
+        email: String,
+        token: String,
+        type: String = "signup"
+    ): Result<String> = withContext(ioDispatcher) {
+        val endpoint = "$baseUrl${SupabaseConfig.AUTH_PATH}/verify"
+        val payload = JSONObject().apply {
+            put("email", email.trim().lowercase())
+            put("token", token.trim())
+            put("type", type)
+        }
+        sendRequest(
+            endpoint = endpoint,
+            method = "POST",
+            body = payload.toString(),
+            accessToken = null
+        )
+    }
+
+    /**
+     * Executes Supabase Auth resend token (/auth/v1/resend).
+     */
+    suspend fun authResendOtp(
+        email: String,
+        type: String = "signup"
+    ): Result<String> = withContext(ioDispatcher) {
+        val endpoint = "$baseUrl${SupabaseConfig.AUTH_PATH}/resend"
+        val payload = JSONObject().apply {
+            put("email", email.trim().lowercase())
+            put("type", type)
+        }
+        sendRequest(
+            endpoint = endpoint,
+            method = "POST",
+            body = payload.toString(),
+            accessToken = null
+        )
+    }
+
+    /**
+     * Executes Supabase Auth password recovery (/auth/v1/recover).
+     */
+    suspend fun authRecoverPassword(
+        email: String
+    ): Result<String> = withContext(ioDispatcher) {
+        val endpoint = "$baseUrl${SupabaseConfig.AUTH_PATH}/recover"
+        val payload = JSONObject().apply {
+            put("email", email.trim().lowercase())
+        }
+        sendRequest(
+            endpoint = endpoint,
+            method = "POST",
+            body = payload.toString(),
+            accessToken = null
+        )
+    }
+
+    /**
+     * Executes Supabase Auth token exchange with ID Token (Google OAuth / Android Credential Manager).
+     */
+    suspend fun authSignInWithIdToken(
+        provider: String = "google",
+        idToken: String,
+        nonce: String? = null
+    ): Result<String> = withContext(ioDispatcher) {
+        val endpoint = "$baseUrl${SupabaseConfig.AUTH_PATH}/token?grant_type=id_token"
+        val payload = JSONObject().apply {
+            put("provider", provider)
+            put("id_token", idToken.trim())
+            if (!nonce.isNullOrBlank()) {
+                put("nonce", nonce)
+            }
+        }
+        sendRequest(
+            endpoint = endpoint,
+            method = "POST",
+            body = payload.toString(),
+            accessToken = null
+        )
+    }
+
+    /**
+     * Executes Supabase Auth token refresh (/auth/v1/token?grant_type=refresh_token).
+     */
+    suspend fun authRefreshToken(
+        refreshToken: String
+    ): Result<String> = withContext(ioDispatcher) {
+        val endpoint = "$baseUrl${SupabaseConfig.AUTH_PATH}/token?grant_type=refresh_token"
+        val payload = JSONObject().apply {
+            put("refresh_token", refreshToken.trim())
+        }
+        sendRequest(
+            endpoint = endpoint,
+            method = "POST",
+            body = payload.toString(),
+            accessToken = null
+        )
+    }
+
+    /**
      * Executes Supabase Auth sign-out (/auth/v1/logout).
      */
     suspend fun authSignOut(
@@ -189,7 +292,13 @@ class SupabaseHttpClient(
                 val errorMessage = if (responseText.isNotBlank()) {
                     try {
                         val errorJson = JSONObject(responseText)
-                        errorJson.optString("message", errorJson.optString("msg", responseText))
+                        errorJson.optString(
+                            "msg",
+                            errorJson.optString(
+                                "message",
+                                errorJson.optString("error_description", responseText)
+                            )
+                        )
                     } catch (_: Exception) {
                         responseText
                     }

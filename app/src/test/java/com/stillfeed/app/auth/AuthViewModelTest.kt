@@ -163,4 +163,56 @@ class AuthViewModelTest {
         assertEquals("device_test_hw_123", user?.deviceBindingId)
         assertTrue(user?.isDeviceBound == true)
     }
+
+    @Test
+    fun otpInput_filtersDigitsAndSubmitsAtSixDigits() = testScope.runTest {
+        viewModel.onEmailChanged("otp@stillfeed.app")
+        viewModel.navigateToVerifyCode()
+        assertEquals(com.stillfeed.app.auth.ui.AuthScreenMode.VERIFY_CODE, viewModel.uiState.value.currentMode)
+
+        // Type 5 digits
+        viewModel.onOtpChanged("123ab45")
+        assertEquals("12345", viewModel.uiState.value.otpInput)
+
+        // Type 6th digit -> triggers verification
+        viewModel.onOtpChanged("123456")
+        advanceUntilIdle()
+
+        assertEquals("", viewModel.uiState.value.otpInput)
+        assertTrue(viewModel.currentAuthState.value is AuthState.SignedIn)
+        assertNotNull(viewModel.uiState.value.authenticatedUser)
+    }
+
+    @Test
+    fun submitForgotPassword_withValidEmail_switchesToResetLinkSentMode() = testScope.runTest {
+        viewModel.onEmailChanged("reset@stillfeed.app")
+        viewModel.navigateToForgotPassword()
+        assertEquals(com.stillfeed.app.auth.ui.AuthScreenMode.FORGOT_PASSWORD, viewModel.uiState.value.currentMode)
+
+        viewModel.submitForgotPassword()
+        advanceUntilIdle()
+
+        assertEquals(com.stillfeed.app.auth.ui.AuthScreenMode.RESET_LINK_SENT, viewModel.uiState.value.currentMode)
+        assertEquals("reset@stillfeed.app", viewModel.uiState.value.resetEmailSentTo)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun submitGoogleSignIn_withoutToken_showsHelpfulConfigurationMessage() = testScope.runTest {
+        viewModel.submitGoogleSignIn(null)
+
+        val error = viewModel.uiState.value.errorMessage
+        assertNotNull(error)
+        assertTrue(error?.contains("Google OAuth") == true)
+    }
+
+    @Test
+    fun submitGoogleSignIn_withToken_authenticatesUser() = testScope.runTest {
+        viewModel.submitGoogleSignIn("valid_google_token_123")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.currentAuthState.value is AuthState.SignedIn)
+        assertEquals("google_user@stillfeed.app", viewModel.uiState.value.authenticatedUser?.email)
+    }
 }
+

@@ -1,9 +1,10 @@
 package com.stillfeed.app.auth.ui
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,36 +21,40 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.stillfeed.app.core.ui.components.StillfeedScreenHeader
+import androidx.compose.ui.unit.sp
 import com.stillfeed.app.core.ui.theme.StillfeedTheme
 
 /**
- * STILLFEED Sign In Screen (00A — Sign In).
+ * STILLFEED Sign In Screen (Figma Frames: 00A — Sign In, 00A-L — Loading, 00A-E — Error, Nodes 289:307, 289:375, 289:443).
  *
- * Implements the exact finalized Figma screen (Node 265:36):
- * - Canvas: 390 x 844 dp
- * - Background fill: StillfeedWarmPaper (#F5F0E7)
- * - Header: SKILLFEED brand wordmark, Step indicator "01 / 02", Section "ACCOUNT"
- * - Title: "Welcome back." (Inter SemiBold 42sp)
- * - Subtitle: "Sign in to continue with STILLFEED." (Inter Regular 14sp)
- * - Email field (334 x 62 dp, 18dp corner radius, CardCream fill, 1dp SandBorder)
- * - Password field with independent eye toggle (44dp touch target, "Show password" / "Hide password")
- * - Primary CTA: "SIGN IN" (294 x 52 dp, 26dp radius, Charcoal fill)
- * - Secondary action: "New here?  CREATE ACCOUNT"
- *
- * NO social logins, NO forgot-password UI, NO extra cards or gradients.
+ * Exact specifications:
+ * - Brand Header: Focus mark + SKILLFEED wordmark
+ * - Title: "Welcome back." (Inter SemiBold 42sp, #1F2421)
+ * - Subtitle: "Sign in to continue with SKILLFEED." (Inter Regular 15sp, #6D746E)
+ * - Form inputs: Email and Password with eye visibility toggle
+ * - Link: "Forgot password?"
+ * - Alert card on error: "Email or password is incorrect. Check them and try again."
+ * - Primary CTA: "Sign in" / "Signing in…" (pill 56dp, #1F2421)
+ * - Divider: "or"
+ * - Secondary CTA: "Continue with Google"
+ * - Footer: "New to SKILLFEED?  Create an account"
  */
 @Composable
 fun SignInScreen(
@@ -63,7 +68,7 @@ fun SignInScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = StillfeedTheme.colors.backgroundPrimary
+        containerColor = Color(0xFFF5F0E7)
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -71,42 +76,47 @@ fun SignInScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
                 .imePadding()
-                .padding(horizontal = StillfeedTheme.spacing.screenMargin)
-                .padding(top = StillfeedTheme.spacing.lg, bottom = StillfeedTheme.spacing.xxl),
+                .padding(horizontal = 24.dp)
+                .padding(top = 16.dp, bottom = 24.dp),
             horizontalAlignment = Alignment.Start
         ) {
-            // Screen Header: Brand wordmark (left) + "01 / 02" (right) + "ACCOUNT"
-            StillfeedScreenHeader(
-                sectionLabel = "ACCOUNT",
-                stepCounter = "01 / 02"
-            )
+            // Brand Header
+            AuthBrandHeader()
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Screen Title
+            // Screen Title & Subtitle
             Text(
                 text = "Welcome back.",
-                style = StillfeedTheme.typography.headlineLarge,
-                color = StillfeedTheme.colors.textPrimary
+                fontSize = 42.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF1F2421),
+                lineHeight = 46.sp
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Screen Subtitle
             Text(
-                text = "Sign in to continue with STILLFEED.",
-                style = StillfeedTheme.typography.bodyMedium,
-                color = StillfeedTheme.colors.textSecondary
+                text = "Sign in to continue with SKILLFEED.",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color(0xFF6D746E)
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            // Respectful error feedback
+            if (uiState.errorMessage != null) {
+                Spacer(modifier = Modifier.height(20.dp))
+                AuthAlertCard(message = uiState.errorMessage ?: "")
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Email Input Field
             AuthInputField(
                 label = "Email",
                 value = uiState.emailInput,
                 onValueChange = { viewModel.onEmailChanged(it) },
-                placeholder = "Your email",
+                placeholder = "you@example.com",
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next
@@ -114,7 +124,8 @@ fun SignInScreen(
                 keyboardActions = KeyboardActions(
                     onNext = { focusManager.moveFocus(FocusDirection.Down) }
                 ),
-                enabled = !uiState.isLoading
+                enabled = !uiState.isLoading,
+                hasError = uiState.emailError != null
             )
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -141,6 +152,7 @@ fun SignInScreen(
                     }
                 ),
                 enabled = !uiState.isLoading,
+                hasError = uiState.passwordError != null,
                 trailingContent = {
                     PasswordVisibilityToggle(
                         isPasswordVisible = isPasswordVisible,
@@ -150,47 +162,89 @@ fun SignInScreen(
                 }
             )
 
-            // Respectful error feedback
-            if (uiState.errorMessage != null) {
-                Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Forgot Password Link
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
                 Text(
-                    text = uiState.errorMessage.orEmpty(),
-                    style = StillfeedTheme.typography.bodySmall,
-                    color = StillfeedTheme.colors.destructive,
-                    textAlign = TextAlign.Start,
+                    text = "Forgot password?",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2421),
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp)
+                        .clickable(enabled = !uiState.isLoading) {
+                            focusManager.clearFocus()
+                            viewModel.navigateToForgotPassword()
+                        }
+                        .padding(vertical = 4.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(36.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Centered Primary CTA & Secondary Action
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+            // Primary CTA: Sign In / Signing In
+            AuthPrimaryButton(
+                text = if (uiState.isLoading) "Signing in…" else "Sign in",
+                onClick = {
+                    focusManager.clearFocus()
+                    viewModel.submitSignIn()
+                },
+                isLoading = uiState.isLoading,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // OR Divider
+            AuthDivider()
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Google Sign-In CTA
+            GoogleSignInButton(
+                onClick = {
+                    focusManager.clearFocus()
+                    viewModel.submitGoogleSignIn()
+                },
+                isLoading = false,
+                enabled = !uiState.isLoading
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Bottom Navigation Prompt: "New to SKILLFEED?  Create an account"
+            val interactionSource = remember { MutableInteractionSource() }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        enabled = !uiState.isLoading,
+                        role = Role.Button,
+                        onClick = {
+                            focusManager.clearFocus()
+                            onNavigateToCreateAccount()
+                        }
+                    )
+                    .semantics { this.role = Role.Button },
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                AuthPrimaryButton(
-                    text = "SIGN IN",
-                    onClick = {
-                        focusManager.clearFocus()
-                        viewModel.submitSignIn()
-                    },
-                    isLoading = uiState.isLoading
+                Text(
+                    text = "New to SKILLFEED?  ",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color(0xFF6D746E)
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                AuthSecondaryAction(
-                    prefixText = "New here?",
-                    actionText = "CREATE ACCOUNT",
-                    onClick = {
-                        focusManager.clearFocus()
-                        onNavigateToCreateAccount()
-                    },
-                    enabled = !uiState.isLoading
+                Text(
+                    text = "Create an account",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2421)
                 )
             }
         }

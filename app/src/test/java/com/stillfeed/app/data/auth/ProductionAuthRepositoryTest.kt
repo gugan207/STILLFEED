@@ -322,4 +322,60 @@ class ProductionAuthRepositoryTest {
         assertEquals(1, remoteAuthDataSource.deletedTokens.size)
         assertEquals(AuthState.SignedOut, repository.authState.value)
     }
+
+    @Test
+    fun verifyEmailOtp_validCode_authenticates_bindsDevice_andSavesSession() = runTest(testDispatcher) {
+        val result = repository.verifyEmailOtp("otp_user@example.com", "123456")
+
+        assertTrue(result.isSuccess)
+        val user = result.getOrThrow()
+        assertEquals("otp_user@example.com", user.email)
+        assertEquals("device_test_token_001", user.deviceBindingId)
+
+        val authState = repository.authState.value
+        assertTrue(authState is AuthState.SignedIn)
+        assertEquals(user.id, (authState as AuthState.SignedIn).user.id)
+
+        val session = sessionRepository.getSession()
+        assertNotNull(session)
+        assertEquals(user.id, session?.userId)
+    }
+
+    @Test
+    fun verifyEmailOtp_invalidCode_failsWithDescriptiveError() = runTest(testDispatcher) {
+        val result = repository.verifyEmailOtp("otp_user@example.com", "999999")
+
+        assertTrue(result.isFailure)
+        assertNull(sessionRepository.getSession())
+        assertTrue(repository.authState.value is AuthState.Error)
+    }
+
+    @Test
+    fun resendOtp_success_invokesRemoteSource() = runTest(testDispatcher) {
+        val result = repository.resendOtp("resend_user@example.com")
+
+        assertTrue(result.isSuccess)
+        assertEquals(1, remoteAuthDataSource.resendCallCount)
+    }
+
+    @Test
+    fun sendPasswordReset_success_invokesRemoteSource() = runTest(testDispatcher) {
+        val result = repository.sendPasswordReset("reset_user@example.com")
+
+        assertTrue(result.isSuccess)
+        assertEquals("reset_user@example.com", remoteAuthDataSource.recoverEmailSentTo)
+    }
+
+    @Test
+    fun signInWithGoogle_validIdToken_authenticatesAndSavesSession() = runTest(testDispatcher) {
+        val result = repository.signInWithGoogle("valid_google_id_token_xyz")
+
+        assertTrue(result.isSuccess)
+        val user = result.getOrThrow()
+        assertEquals("google_user@example.com", user.email)
+
+        assertTrue(repository.authState.value is AuthState.SignedIn)
+        assertNotNull(sessionRepository.getSession())
+    }
 }
+

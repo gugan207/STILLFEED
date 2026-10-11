@@ -46,21 +46,49 @@ fun AuthGate(
         is AuthState.SignedIn -> {
             authenticatedContent(state.user)
         }
+        is AuthState.NeedsEmailVerification,
         is AuthState.SignedOut,
         is AuthState.SigningIn,
         is AuthState.SigningUp,
         is AuthState.Error,
         is AuthState.SessionExpired -> {
-            if (uiState.isSignUpMode) {
-                CreateAccountScreen(
-                    viewModel = viewModel,
-                    onNavigateToSignIn = { viewModel.navigateToSignIn() }
-                )
-            } else {
-                SignInScreen(
-                    viewModel = viewModel,
-                    onNavigateToCreateAccount = { viewModel.navigateToCreateAccount() }
-                )
+            when (uiState.currentMode) {
+                AuthScreenMode.SIGN_IN -> {
+                    SignInScreen(
+                        viewModel = viewModel,
+                        onNavigateToCreateAccount = { viewModel.navigateToCreateAccount() }
+                    )
+                }
+                AuthScreenMode.CREATE_ACCOUNT -> {
+                    CreateAccountScreen(
+                        viewModel = viewModel,
+                        onNavigateToSignIn = { viewModel.navigateToSignIn() }
+                    )
+                }
+                AuthScreenMode.VERIFY_CODE -> {
+                    VerifyCodeScreen(
+                        viewModel = viewModel,
+                        onNavigateBack = {
+                            if (uiState.isSignUpMode) {
+                                viewModel.navigateToCreateAccount()
+                            } else {
+                                viewModel.navigateToSignIn()
+                            }
+                        }
+                    )
+                }
+                AuthScreenMode.FORGOT_PASSWORD -> {
+                    ForgotPasswordScreen(
+                        viewModel = viewModel,
+                        onNavigateBack = { viewModel.navigateToSignIn() }
+                    )
+                }
+                AuthScreenMode.RESET_LINK_SENT -> {
+                    ResetLinkSentScreen(
+                        viewModel = viewModel,
+                        onNavigateToSignIn = { viewModel.navigateToSignIn() }
+                    )
+                }
             }
         }
     }

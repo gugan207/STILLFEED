@@ -147,6 +147,68 @@ class InMemoryRemoteAuthDataSource : RemoteAuthDataSource {
         deletedTokens.add(accessToken)
         return Result.success(Unit)
     }
+
+    var validOtpCode: String = "123456"
+    var resendCallCount: Int = 0
+    var recoverEmailSentTo: String? = null
+
+    override suspend fun verifyEmailOtp(email: String, token: String, type: String): Result<RemoteAuthResponse> {
+        if (simulateNetworkError) return Result.failure(IOException("Network timeout during OTP verification"))
+        if (token != validOtpCode) {
+            return Result.failure(IllegalArgumentException("Token has expired or is invalid"))
+        }
+        val normalized = email.trim().lowercase()
+        val account = accounts[normalized] ?: StoredAccount(
+            userId = "user_otp_${UUID.randomUUID().toString().take(8)}",
+            email = normalized,
+            password = "hashed_placeholder",
+            displayName = null
+        ).also { accounts[normalized] = it }
+
+        return Result.success(
+            RemoteAuthResponse(
+                userId = account.userId,
+                email = account.email,
+                displayName = account.displayName,
+                accessToken = "jwt_access_otp_${UUID.randomUUID()}",
+                refreshToken = "jwt_refresh_otp_${UUID.randomUUID()}",
+                expiresInSeconds = 3600L,
+                registeredDeviceBindingId = account.registeredDeviceBindingId,
+                requiresEmailVerification = false
+            )
+        )
+    }
+
+    override suspend fun resendOtp(email: String, type: String): Result<Unit> {
+        if (simulateNetworkError) return Result.failure(IOException("Network timeout during OTP resend"))
+        resendCallCount++
+        return Result.success(Unit)
+    }
+
+    override suspend fun recoverPassword(email: String): Result<Unit> {
+        if (simulateNetworkError) return Result.failure(IOException("Network timeout during password recovery"))
+        recoverEmailSentTo = email.trim().lowercase()
+        return Result.success(Unit)
+    }
+
+    override suspend fun signInWithGoogle(idToken: String): Result<RemoteAuthResponse> {
+        if (simulateNetworkError) return Result.failure(IOException("Network timeout during Google sign-in"))
+        if (idToken.isBlank()) return Result.failure(IllegalArgumentException("Invalid Google ID token"))
+        val email = "google_user@example.com"
+        val userId = "google_user_123"
+        return Result.success(
+            RemoteAuthResponse(
+                userId = userId,
+                email = email,
+                displayName = "Google User",
+                accessToken = "jwt_google_access_${UUID.randomUUID()}",
+                refreshToken = "jwt_google_refresh_${UUID.randomUUID()}",
+                expiresInSeconds = 3600L,
+                registeredDeviceBindingId = null,
+                requiresEmailVerification = false
+            )
+        )
+    }
 }
 
 /**

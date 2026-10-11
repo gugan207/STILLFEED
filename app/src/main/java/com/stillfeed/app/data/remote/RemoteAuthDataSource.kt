@@ -10,7 +10,8 @@ data class RemoteAuthResponse(
     val accessToken: String,
     val refreshToken: String?,
     val expiresInSeconds: Long,
-    val registeredDeviceBindingId: String? = null
+    val registeredDeviceBindingId: String? = null,
+    val requiresEmailVerification: Boolean = false
 )
 
 /**
@@ -24,4 +25,16 @@ interface RemoteAuthDataSource {
     suspend fun signOut(accessToken: String): Result<Unit>
     suspend fun refreshSession(refreshToken: String): Result<RemoteAuthResponse>
     suspend fun deleteAccount(accessToken: String): Result<Unit>
+
+    suspend fun verifyEmailOtp(email: String, token: String, type: String = "signup"): Result<RemoteAuthResponse> =
+        Result.failure(UnsupportedOperationException("Email OTP verification not implemented"))
+
+    suspend fun resendOtp(email: String, type: String = "signup"): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Resend OTP not implemented"))
+
+    suspend fun recoverPassword(email: String): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Password recovery not implemented"))
+
+    suspend fun signInWithGoogle(idToken: String): Result<RemoteAuthResponse> =
+        Result.failure(UnsupportedOperationException("Google Sign-In not implemented"))
 }

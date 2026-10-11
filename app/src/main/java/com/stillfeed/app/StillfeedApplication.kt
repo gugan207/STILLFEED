@@ -145,12 +145,13 @@ class StillfeedApplication : Application() {
         appPreferencesRepository = DataStoreAppPreferencesRepository(appPreferencesDataStore)
         sessionRepository = SecureSessionRepository(this)
 
-        // 3. Initialize Authentication Repository linked to User Persistence
-        val sessionStorage = SecurePreferencesAuthSessionStorage(this)
-        val passwordHasher = Pbkdf2PasswordHasher()
-        authRepository = LocalAuthRepository(
-            sessionStorage = sessionStorage,
-            passwordHasher = passwordHasher,
+        // 3. Initialize Production Authentication Repository backed by Supabase
+        val remoteUserRepo = com.stillfeed.app.data.remote.supabase.SupabaseRemoteUserRepository(supabaseClient)
+        authRepository = com.stillfeed.app.data.auth.ProductionAuthRepository(
+            remoteAuthDataSource = remoteAuthDataSource,
+            sessionRepository = sessionRepository,
+            remoteUserRepository = remoteUserRepo,
+            deviceBindingRepository = deviceBindingRepository,
             userRepository = userRepository
         )
 
