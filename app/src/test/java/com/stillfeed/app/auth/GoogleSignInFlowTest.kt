@@ -28,7 +28,7 @@ class GoogleSignInFlowTest {
 
     @After
     fun tearDown() {
-        GoogleAuthConfig.serverClientId = ""
+        GoogleAuthConfig.serverClientId = GoogleAuthConfig.DEFAULT_SERVER_CLIENT_ID
     }
 
     @Test
@@ -48,5 +48,13 @@ class GoogleSignInFlowTest {
     fun googleAuthConfig_serverClientId_canBeConfigured() {
         GoogleAuthConfig.serverClientId = "test-web-client-id.apps.googleusercontent.com"
         assertTrue(GoogleAuthConfig.serverClientId.isNotBlank())
+    }
+
+    @Test
+    fun googleAuthConfig_defaultServerClientId_matchesProductionWebClientId() {
+        org.junit.Assert.assertEquals(
+            "92258811699-epmm3r02uj5ge76fc4ka07i59kpcqvvg.apps.googleusercontent.com",
+            GoogleAuthConfig.DEFAULT_SERVER_CLIENT_ID
+        )
     }
 }

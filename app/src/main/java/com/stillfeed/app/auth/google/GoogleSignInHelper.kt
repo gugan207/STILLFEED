@@ -18,11 +18,14 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
  * - OAuth Client Secrets are NEVER included in Android or version control.
  */
 object GoogleAuthConfig {
+    const val DEFAULT_SERVER_CLIENT_ID: String =
+        "92258811699-epmm3r02uj5ge76fc4ka07i59kpcqvvg.apps.googleusercontent.com"
+
     /**
      * Web Client ID created in Google Cloud Console.
      * When configured, CredentialManager retrieves ID tokens matching this audience.
      */
-    var serverClientId: String = ""
+    var serverClientId: String = DEFAULT_SERVER_CLIENT_ID
 }
 
 /**
@@ -38,7 +41,7 @@ class GoogleSignInHelper(
         if (clientId.isBlank()) {
             return Result.failure(
                 IllegalStateException(
-                    "Google Sign-In is awaiting configuration: Enter your Google Cloud Web Client ID in GoogleAuthConfig.serverClientId, and configure the Google Provider in Supabase Dashboard."
+                    "Google Sign-In is not configured: Enter your Google Cloud Web Client ID in GoogleAuthConfig.serverClientId."
                 )
             )
         }

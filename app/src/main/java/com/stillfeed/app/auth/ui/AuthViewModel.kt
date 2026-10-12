@@ -385,7 +385,7 @@ class AuthViewModel(
         if (idToken.isNullOrBlank()) {
             _uiState.update {
                 it.copy(
-                    errorMessage = "Google Sign-In is awaiting Google OAuth configuration in the Supabase Dashboard. Please sign in with Email or configure Google provider credentials."
+                    errorMessage = "Google Sign-In was cancelled or Google OAuth token was not received. Please try again."
                 )
             }
             return
