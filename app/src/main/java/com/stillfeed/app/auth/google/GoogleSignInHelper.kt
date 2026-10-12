@@ -10,6 +10,8 @@ import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 
+import android.util.Log
+
 /**
  * Configuration holder for Google OAuth client settings.
  *
@@ -36,7 +38,7 @@ class GoogleSignInHelper(
 ) {
     private val credentialManager = CredentialManager.create(context)
 
-    suspend fun getGoogleIdToken(): Result<String> {
+    suspend fun getGoogleIdToken(nonce: String? = null): Result<String> {
         val clientId = GoogleAuthConfig.serverClientId.trim()
         if (clientId.isBlank()) {
             return Result.failure(
@@ -47,14 +49,17 @@ class GoogleSignInHelper(
         }
 
         return try {
-            val googleIdOption = GetGoogleIdOption.Builder()
+            val optionBuilder = GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(false)
                 .setServerClientId(clientId)
                 .setAutoSelectEnabled(false)
-                .build()
+
+            if (!nonce.isNullOrBlank()) {
+                optionBuilder.setNonce(nonce)
+            }
 
             val request = GetCredentialRequest.Builder()
-                .addCredentialOption(googleIdOption)
+                .addCredentialOption(optionBuilder.build())
                 .build()
 
             val result = credentialManager.getCredential(
@@ -74,9 +79,12 @@ class GoogleSignInHelper(
         } catch (e: NoCredentialException) {
             Result.failure(IllegalStateException("No Google accounts available on this device.", e))
         } catch (e: GetCredentialException) {
+            Log.e("GoogleSignInHelper", "Credential Manager failed: ${e.message}", e)
             Result.failure(IllegalStateException("Google Sign-In error: ${e.message}", e))
         } catch (e: Exception) {
+            Log.e("GoogleSignInHelper", "Unexpected exception during Google Sign-In", e)
             Result.failure(e)
         }
     }
 }
+
