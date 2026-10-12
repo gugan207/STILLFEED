@@ -122,8 +122,8 @@ class AuthUiValidationTest {
         advanceUntilIdle()
 
         assertEquals("Please enter your email address.", viewModel.uiState.value.errorMessage)
-        assertEquals("", viewModel.uiState.value.passwordInput)
-        assertEquals("", viewModel.uiState.value.confirmPasswordInput)
+        assertEquals("validPassword123", viewModel.uiState.value.passwordInput)
+        assertEquals("validPassword123", viewModel.uiState.value.confirmPasswordInput)
     }
 
     @Test
@@ -184,8 +184,8 @@ class AuthUiValidationTest {
         advanceUntilIdle()
 
         assertEquals("The passwords do not match. Please check and try again.", viewModel.uiState.value.errorMessage)
-        assertEquals("", viewModel.uiState.value.passwordInput)
-        assertEquals("", viewModel.uiState.value.confirmPasswordInput)
+        assertEquals("validPassword123", viewModel.uiState.value.passwordInput)
+        assertEquals("differentPassword456", viewModel.uiState.value.confirmPasswordInput)
     }
 
     @Test

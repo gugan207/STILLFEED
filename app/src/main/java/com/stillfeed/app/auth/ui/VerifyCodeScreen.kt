@@ -3,6 +3,7 @@ package com.stillfeed.app.auth.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,6 +27,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -56,98 +58,103 @@ fun VerifyCodeScreen(
         modifier = modifier.fillMaxSize(),
         containerColor = Color(0xFFF5F0E7)
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
-                .imePadding()
-                .padding(horizontal = 24.dp)
-                .padding(top = 16.dp, bottom = 24.dp),
-            horizontalAlignment = Alignment.Start
+                .imePadding(),
+            contentAlignment = Alignment.Center
         ) {
-            // Brand Header
-            AuthBrandHeader()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp)
+                    .padding(vertical = 16.dp),
+                horizontalAlignment = Alignment.Start
+            ) {
+                // Brand Header (Figma Left-Aligned)
+                AuthBrandHeader()
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-            // Mail Icon in dark circle
-            DarkCircleMailIcon()
+                // Mail Icon in dark circle (Left-Aligned)
+                DarkCircleMailIcon()
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-            // Screen Title & Subtitle
-            Text(
-                text = "Check your email.",
-                fontSize = 42.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1F2421),
-                lineHeight = 46.sp
-            )
+                // Screen Title & Subtitle (Figma Left-Aligned)
+                Text(
+                    text = "Check your email.",
+                    fontSize = 38.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2421),
+                    lineHeight = 42.sp
+                )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-            val displayEmail = uiState.emailInput.ifBlank { "your email" }
-            Text(
-                text = "We sent a six-digit code to $displayEmail.",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Normal,
-                color = Color(0xFF6D746E),
-                lineHeight = 22.sp
-            )
+                val displayEmail = uiState.emailInput.ifBlank { "your email" }
+                Text(
+                    text = "We sent a six-digit code to $displayEmail.",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color(0xFF6D746E),
+                    lineHeight = 22.sp
+                )
 
-            // Respectful error alert
-            if (uiState.errorMessage != null) {
-                Spacer(modifier = Modifier.height(20.dp))
-                AuthAlertCard(message = uiState.errorMessage ?: "")
-            }
+                // Respectful error alert
+                if (uiState.errorMessage != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    AuthAlertCard(message = uiState.errorMessage ?: "")
+                }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-            // Verification Code Label
-            Text(
-                text = "Verification code",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF6D746E),
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+                // Verification Code Label (Figma Left-Aligned)
+                Text(
+                    text = "Verification code",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF6D746E),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
 
-            // 6-digit OTP Input Row
-            OtpInputRow(
-                otpValue = uiState.otpInput,
-                onOtpChange = { viewModel.onOtpChanged(it) },
-                hasError = uiState.errorMessage != null,
-                enabled = !uiState.isLoading
-            )
+                // 6-digit OTP Input Row (Discrete boxes centered in the row)
+                OtpInputRow(
+                    otpValue = uiState.otpInput,
+                    onOtpChange = { viewModel.onOtpChanged(it) },
+                    hasError = uiState.errorMessage != null,
+                    enabled = !uiState.isLoading
+                )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            // Help text
-            Text(
-                text = "The code expires after a short time. Keep it private.",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Normal,
-                color = Color(0xFF6D746E)
-            )
+                // Help text (Figma Left-Aligned)
+                Text(
+                    text = "The code expires after a short time. Keep it private.",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color(0xFF6D746E)
+                )
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-            // Primary CTA: Verify code
-            AuthPrimaryButton(
-                text = if (uiState.isLoading) "Verifying code…" else "Verify code",
-                onClick = { viewModel.submitVerifyOtp() },
-                isLoading = uiState.isLoading,
-                enabled = uiState.otpInput.length == 6 && !uiState.isLoading,
-                modifier = Modifier.fillMaxWidth()
-            )
+                // Primary CTA: Verify code
+                AuthPrimaryButton(
+                    text = if (uiState.isLoading) "Verifying code…" else "Verify code",
+                    onClick = { viewModel.submitVerifyOtp() },
+                    isLoading = uiState.isLoading,
+                    enabled = uiState.otpInput.length == 6 && !uiState.isLoading,
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-            // Didn't get it? Resend code
-            val interactionSource = remember { MutableInteractionSource() }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
+                // Didn't get it? Resend code
+                val interactionSource = remember { MutableInteractionSource() }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -210,4 +217,5 @@ fun VerifyCodeScreen(
             }
         }
     }
+}
 }

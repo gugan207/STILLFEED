@@ -19,6 +19,9 @@ class SignUpUseCase(
         if (password.length < 8) {
             return Result.failure(IllegalArgumentException(AuthError.WeakPassword().userMessage))
         }
+        if (!password.any { it.isUpperCase() } || !password.any { !it.isLetter() }) {
+            return Result.failure(IllegalArgumentException("Password must include at least 1 uppercase letter and 1 number or symbol."))
+        }
         return authRepository.signUp(trimmedEmail, password, displayName?.trim())
     }
 }

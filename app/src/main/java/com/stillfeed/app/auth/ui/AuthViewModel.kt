@@ -244,36 +244,50 @@ class AuthViewModel(
         val displayName = currentState.displayNameInput
 
         if (email.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "Please enter your email address.", emailError = "Please enter your email.", passwordInput = "", confirmPasswordInput = "") }
+            _uiState.update { it.copy(errorMessage = "Please enter your email address.", emailError = "Please enter your email.") }
             return
         }
         if (!email.contains("@") || !email.contains(".")) {
-            _uiState.update { it.copy(errorMessage = AuthError.InvalidEmail().userMessage, emailError = AuthError.InvalidEmail().userMessage, passwordInput = "", confirmPasswordInput = "") }
+            _uiState.update { it.copy(errorMessage = AuthError.InvalidEmail().userMessage, emailError = AuthError.InvalidEmail().userMessage) }
             return
         }
         if (password.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "Please enter your password.", passwordError = "Please enter your password.", passwordInput = "", confirmPasswordInput = "") }
+            _uiState.update { it.copy(errorMessage = "Please enter your password.", passwordError = "Please enter your password.") }
             return
         }
         if (password.length < 8) {
-            _uiState.update { it.copy(errorMessage = AuthError.WeakPassword().userMessage, passwordError = "Use at least 10 characters.", passwordInput = "", confirmPasswordInput = "") }
+            _uiState.update { it.copy(errorMessage = AuthError.WeakPassword().userMessage, passwordError = "Use at least 8 characters.") }
+            return
+        }
+        val hasUppercase = password.any { it.isUpperCase() }
+        val hasSymbolOrDigit = password.any { !it.isLetter() }
+        if (!hasUppercase || !hasSymbolOrDigit) {
+            _uiState.update {
+                it.copy(
+                    errorMessage = "Password must include at least 1 uppercase letter and 1 number or symbol.",
+                    passwordError = "Include 1 capital letter & 1 symbol/number."
+                )
+            }
             return
         }
         if (confirmPassword.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "Please confirm your password.", confirmPasswordError = "Please confirm your password.", passwordInput = "", confirmPasswordInput = "") }
+            _uiState.update { it.copy(errorMessage = "Please confirm your password.", confirmPasswordError = "Please confirm your password.") }
             return
         }
         if (password != confirmPassword) {
-            _uiState.update { it.copy(errorMessage = "The passwords do not match. Please check and try again.", confirmPasswordError = "Passwords don’t match.", passwordInput = "", confirmPasswordInput = "") }
+            _uiState.update { it.copy(errorMessage = "The passwords do not match. Please check and try again.", confirmPasswordError = "Passwords don’t match.") }
             return
         }
 
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             val result = signUpUseCase(email, password, displayName)
             if (result.isFailure) {
                 val msg = result.exceptionOrNull()?.message
                     ?: AuthError.AccountCreationFailed().userMessage
-                _uiState.update { it.copy(errorMessage = msg, passwordInput = "", confirmPasswordInput = "") }
+                _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
+            } else {
+                _uiState.update { it.copy(isLoading = false, passwordInput = "", confirmPasswordInput = "") }
             }
         }
     }
@@ -389,6 +403,9 @@ class AuthViewModel(
 
     fun submit() {
         if (_uiState.value.isSignUpMode) {
+            if (_uiState.value.confirmPasswordInput.isBlank() && _uiState.value.passwordInput.isNotBlank()) {
+                _uiState.update { it.copy(confirmPasswordInput = it.passwordInput) }
+            }
             submitSignUp()
         } else {
             submitSignIn()

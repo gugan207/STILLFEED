@@ -74,17 +74,17 @@ fun AuthInputField(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(62.dp)
+            .height(58.dp)
             .background(
                 color = StillfeedTheme.colors.surface,
-                shape = RoundedCornerShape(18.dp)
+                shape = RoundedCornerShape(16.dp)
             )
             .border(
                 width = 1.dp,
                 color = if (hasError) StillfeedTheme.colors.destructive else StillfeedTheme.colors.divider,
-                shape = RoundedCornerShape(18.dp)
+                shape = RoundedCornerShape(16.dp)
             )
-            .padding(start = 16.dp, top = 9.dp, end = 12.dp, bottom = 9.dp)
+            .padding(start = 16.dp, top = 8.dp, end = 12.dp, bottom = 8.dp)
     ) {
         Column(
             modifier = Modifier
@@ -98,7 +98,7 @@ fun AuthInputField(
                 color = StillfeedTheme.colors.textSecondary
             )
 
-            Spacer(modifier = Modifier.height(3.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             Box(
                 modifier = Modifier.fillMaxWidth(),

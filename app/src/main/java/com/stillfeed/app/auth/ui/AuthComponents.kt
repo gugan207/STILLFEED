@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -69,7 +70,7 @@ fun AuthBrandHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 9.dp),
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start
     ) {
@@ -175,7 +176,7 @@ fun GoogleSignInButton(
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD9D4CA)),
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .height(52.dp)
             .semantics { this.role = Role.Button }
     ) {
         if (isLoading) {
@@ -318,11 +319,11 @@ fun OtpInputRow(
 
             Box(
                 modifier = Modifier
-                    .width(49.dp)
-                    .height(60.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .weight(1f)
+                    .height(54.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFFFBF8F2))
-                    .border(borderWidth, borderColor, RoundedCornerShape(14.dp))
+                    .border(borderWidth, borderColor, RoundedCornerShape(12.dp))
                     .clickable(enabled = enabled) {
                         val targetIndex = otpValue.length.coerceAtMost(5)
                         focusRequesters[targetIndex].requestFocus()
@@ -353,6 +354,7 @@ fun OtpInputRow(
                         }
                     },
                     modifier = Modifier
+                        .fillMaxSize()
                         .focusRequester(focusRequesters[i])
                         .onKeyEvent { keyEvent ->
                             if (keyEvent.key == Key.Backspace && char.isEmpty() && i > 0) {
@@ -371,6 +373,14 @@ fun OtpInputRow(
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center
                     ),
+                    decorationBox = { innerTextField ->
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            innerTextField()
+                        }
+                    },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.NumberPassword,
                         imeAction = if (i == 5) ImeAction.Done else ImeAction.Next
