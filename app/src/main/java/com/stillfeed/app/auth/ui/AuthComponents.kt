@@ -24,7 +24,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.painterResource
+import com.stillfeed.app.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -186,54 +189,13 @@ fun GoogleSignInButton(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                // Official Google 4-Color 'G' Icon
-                Canvas(modifier = Modifier.size(18.dp)) {
-                    val w = size.width
-                    val h = size.height
-                    val cx = w / 2f
-                    val cy = h / 2f
-
-                    // Red quadrant (top-left)
-                    drawArc(
-                        color = Color(0xFFEA4335),
-                        startAngle = 180f,
-                        sweepAngle = 90f,
-                        useCenter = true
-                    )
-                    // Yellow quadrant (bottom-left)
-                    drawArc(
-                        color = Color(0xFFFBBC05),
-                        startAngle = 90f,
-                        sweepAngle = 90f,
-                        useCenter = true
-                    )
-                    // Green quadrant (bottom-right)
-                    drawArc(
-                        color = Color(0xFF34A853),
-                        startAngle = 0f,
-                        sweepAngle = 90f,
-                        useCenter = true
-                    )
-                    // Blue right bar
-                    drawArc(
-                        color = Color(0xFF4285F4),
-                        startAngle = 270f,
-                        sweepAngle = 90f,
-                        useCenter = true
-                    )
-                    // Inner hole
-                    drawCircle(
-                        color = Color(0xFFFBF8F2),
-                        radius = cx * 0.55f,
-                        center = Offset(cx, cy)
-                    )
-                    // Blue center horizontal bar
-                    drawRect(
-                        color = Color(0xFF4285F4),
-                        topLeft = Offset(cx, cy - (h * 0.18f)),
-                        size = androidx.compose.ui.geometry.Size(cx, h * 0.36f)
-                    )
-                }
+                // Official Google 4-Color 'G' Icon from Figma Design System (Node 286:61)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_google_logo),
+                    contentDescription = null,
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(18.dp)
+                )
 
                 Spacer(modifier = Modifier.width(10.dp))
 
