@@ -53,7 +53,7 @@ class GoogleSignInFlowTest {
     @Test
     fun googleAuthConfig_defaultServerClientId_matchesProductionWebClientId() {
         org.junit.Assert.assertEquals(
-            "92258811699-epmm3r02uj5ge76fc4ka07i59kpcqvvg.apps.googleusercontent.com",
+            "92258811699-dj7fh1fc8lh460h1rtm1f8k0f20pdk4m.apps.googleusercontent.com",
             GoogleAuthConfig.DEFAULT_SERVER_CLIENT_ID
         )
     }

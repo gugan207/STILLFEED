@@ -21,7 +21,7 @@ import android.util.Log
  */
 object GoogleAuthConfig {
     const val DEFAULT_SERVER_CLIENT_ID: String =
-        "92258811699-epmm3r02uj5ge76fc4ka07i59kpcqvvg.apps.googleusercontent.com"
+        "92258811699-dj7fh1fc8lh460h1rtm1f8k0f20pdk4m.apps.googleusercontent.com"
 
     /**
      * Web Client ID created in Google Cloud Console.
