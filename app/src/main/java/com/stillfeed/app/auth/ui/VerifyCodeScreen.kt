@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Scaffold
@@ -35,7 +36,7 @@ import androidx.compose.ui.unit.sp
  * STILLFEED Verify Code Screen (Figma Frames: 00C — Verify Code, 00C-E — Wrong code, Nodes 289:674, 289:719).
  *
  * Exact specifications:
- * - Brand Header: Focus mark + SKILLFEED wordmark
+ * - Brand Header: Focus mark + SKILLFEED wordmark positioned in the top left
  * - Mail icon in 48dp charcoal circle (#1F2421)
  * - Title: "Check your email." (Inter SemiBold 42sp, #1F2421)
  * - Subtitle: "We sent a six-digit code to {email}." (Inter Regular 15sp, #6D746E)
@@ -56,7 +57,14 @@ fun VerifyCodeScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color(0xFFF5F0E7)
+        containerColor = Color(0xFFF5F0E7),
+        topBar = {
+            AuthBrandHeader(
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 8.dp)
+            )
+        }
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -73,11 +81,6 @@ fun VerifyCodeScreen(
                     .padding(vertical = 16.dp),
                 horizontalAlignment = Alignment.Start
             ) {
-                // Brand Header (Figma Left-Aligned)
-                AuthBrandHeader()
-
-                Spacer(modifier = Modifier.height(18.dp))
-
                 // Mail Icon in dark circle (Left-Aligned)
                 DarkCircleMailIcon()
 

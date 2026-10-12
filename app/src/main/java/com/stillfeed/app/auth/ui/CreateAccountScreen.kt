@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -83,7 +84,14 @@ fun CreateAccountScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color(0xFFF5F0E7)
+        containerColor = Color(0xFFF5F0E7),
+        topBar = {
+            AuthBrandHeader(
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 8.dp)
+            )
+        }
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -100,11 +108,6 @@ fun CreateAccountScreen(
                     .padding(vertical = 12.dp),
                 horizontalAlignment = Alignment.Start
             ) {
-                // Brand Header (Figma Left-Aligned)
-                AuthBrandHeader()
-
-                Spacer(modifier = Modifier.height(14.dp))
-
                 // Screen Title & Subtitle (Figma Left-Aligned)
                 Text(
                     text = "Create your account.",

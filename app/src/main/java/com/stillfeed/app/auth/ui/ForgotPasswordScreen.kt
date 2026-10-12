@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -38,7 +39,7 @@ import androidx.compose.ui.unit.sp
  * STILLFEED Forgot Password Screen (Figma Frame: 00D — Forgot Password, Node 289:770).
  *
  * Exact specifications:
- * - Brand Header: Focus mark + SKILLFEED wordmark
+ * - Brand Header: Focus mark + SKILLFEED wordmark positioned in the top left
  * - Title: "Reset your password." (Inter SemiBold 42sp, #1F2421)
  * - Subtitle: "Enter the email you signed up with and we’ll send you a link to choose a new password." (Inter Regular 15sp, #6D746E)
  * - Email field: Surface #FBF8F2, 1dp border #D9D4CA
@@ -56,7 +57,14 @@ fun ForgotPasswordScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color(0xFFF5F0E7)
+        containerColor = Color(0xFFF5F0E7),
+        topBar = {
+            AuthBrandHeader(
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 8.dp)
+            )
+        }
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -73,11 +81,6 @@ fun ForgotPasswordScreen(
                     .padding(vertical = 16.dp),
                 horizontalAlignment = Alignment.Start
             ) {
-                // Brand Header (Figma Left-Aligned)
-                AuthBrandHeader()
-
-                Spacer(modifier = Modifier.height(18.dp))
-
                 // Screen Title & Subtitle (Figma Left-Aligned)
                 Text(
                     text = "Reset your password.",

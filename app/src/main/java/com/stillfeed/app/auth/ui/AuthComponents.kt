@@ -61,55 +61,56 @@ import com.stillfeed.app.core.ui.theme.StillfeedTheme
 
 /**
  * STILLFEED Brand Header (Figma Component: Auth / Brand Header, Node 296:283).
- * Contains brand symbol and wordmark with exact Figma proportions and typography.
+ * Contains refined brand symbol and wordmark positioned with elegant, professional proportions.
  */
 @Composable
 fun AuthBrandHeader(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.Start
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Start
+        horizontalArrangement = horizontalArrangement
     ) {
-        // Focus Symbol (40x40dp)
+        // Refined Focus Symbol (28x28dp, elegant subtle strokes)
         Box(
             modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(8.dp)),
+                .size(28.dp)
+                .clip(RoundedCornerShape(7.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Canvas(modifier = Modifier.size(32.dp)) {
+            Canvas(modifier = Modifier.size(24.dp)) {
                 val cx = size.width / 2f
                 val cy = size.height / 2f
                 // Concentric focus rings matching STILLFEED design system
                 drawCircle(
                     color = Color(0xFF1F2421),
-                    radius = 14.dp.toPx(),
-                    style = Stroke(width = 2.dp.toPx())
+                    radius = 10.5.dp.toPx(),
+                    style = Stroke(width = 1.6.dp.toPx())
                 )
                 drawCircle(
                     color = Color(0xFF6D746E),
-                    radius = 8.dp.toPx(),
-                    style = Stroke(width = 1.8.dp.toPx())
+                    radius = 6.dp.toPx(),
+                    style = Stroke(width = 1.2.dp.toPx())
                 )
                 drawCircle(
                     color = Color(0xFF1F2421),
-                    radius = 3.dp.toPx()
+                    radius = 2.2.dp.toPx()
                 )
             }
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(10.dp))
 
         Text(
             text = "SKILLFEED",
             fontFamily = StillfeedTheme.typography.headlineLarge.fontFamily,
             fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
-            letterSpacing = 1.2.sp,
+            fontSize = 13.5.sp,
+            letterSpacing = 1.4.sp,
             color = Color(0xFF1F2421)
         )
     }

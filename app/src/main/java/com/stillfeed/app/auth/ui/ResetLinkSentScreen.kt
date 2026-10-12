@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -50,7 +51,14 @@ fun ResetLinkSentScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color(0xFFF5F0E7)
+        containerColor = Color(0xFFF5F0E7),
+        topBar = {
+            AuthBrandHeader(
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 8.dp)
+            )
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -62,11 +70,6 @@ fun ResetLinkSentScreen(
                 .padding(top = 16.dp, bottom = 24.dp),
             horizontalAlignment = Alignment.Start
         ) {
-            // Brand Header
-            AuthBrandHeader()
-
-            Spacer(modifier = Modifier.height(24.dp))
-
             // Mail Icon in dark circle
             DarkCircleMailIcon()
 
