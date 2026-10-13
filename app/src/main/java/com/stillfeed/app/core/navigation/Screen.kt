@@ -8,4 +8,5 @@ sealed class Screen(val route: String) {
     data object AwarenessSelection : Screen("awareness_selection")
     data object Insights : Screen("insights")
     data object Settings : Screen("settings")
+    data object ResetActivity : Screen("reset_activity")
 }

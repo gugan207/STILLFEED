@@ -21,7 +21,8 @@ class HomeNavigationTest {
             Screen.Home.route,
             Screen.AwarenessSelection.route,
             Screen.Insights.route,
-            Screen.Settings.route
+            Screen.Settings.route,
+            Screen.ResetActivity.route
         )
 
         // All routes must be non-empty and unique
@@ -39,6 +40,7 @@ class HomeNavigationTest {
         assertEquals("home", Screen.Home.route)
         assertEquals("insights", Screen.Insights.route)
         assertEquals("settings", Screen.Settings.route)
+        assertEquals("reset_activity", Screen.ResetActivity.route)
     }
 
     @Test

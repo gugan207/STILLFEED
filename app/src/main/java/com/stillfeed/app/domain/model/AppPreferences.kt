@@ -10,6 +10,7 @@ data class AppPreferences(
     val isFirstLaunch: Boolean = true,
     val hasCompletedOnboarding: Boolean = false,
     val onboardingStep: Int = 0,
+    val dailyReelsAllowance: Int = 30,
     val quickProtectionToggle: Boolean = false,
     val dailyReminderEnabled: Boolean = true,
     val preferredThemeMode: String = "SYSTEM",

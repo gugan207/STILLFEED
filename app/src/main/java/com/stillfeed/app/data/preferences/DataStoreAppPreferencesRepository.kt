@@ -38,6 +38,18 @@ class DataStoreAppPreferencesRepository(
         }
     }
 
+    override suspend fun setOnboardingStep(step: Int) {
+        dataStore.edit { preferences ->
+            preferences[AppPreferencesKeys.ONBOARDING_STEP] = step
+        }
+    }
+
+    override suspend fun setDailyReelsAllowance(allowance: Int) {
+        dataStore.edit { preferences ->
+            preferences[AppPreferencesKeys.DAILY_REELS_ALLOWANCE] = allowance
+        }
+    }
+
     override suspend fun setFirstLaunch(isFirstLaunch: Boolean) {
         dataStore.edit { preferences ->
             preferences[AppPreferencesKeys.IS_FIRST_LAUNCH] = isFirstLaunch
@@ -57,6 +69,7 @@ class DataStoreAppPreferencesRepository(
             preferences[AppPreferencesKeys.IS_FIRST_LAUNCH] = updated.isFirstLaunch
             preferences[AppPreferencesKeys.HAS_COMPLETED_ONBOARDING] = updated.hasCompletedOnboarding
             preferences[AppPreferencesKeys.ONBOARDING_STEP] = updated.onboardingStep
+            preferences[AppPreferencesKeys.DAILY_REELS_ALLOWANCE] = updated.dailyReelsAllowance
             preferences[AppPreferencesKeys.QUICK_PROTECTION_TOGGLE] = updated.quickProtectionToggle
             preferences[AppPreferencesKeys.DAILY_REMINDER_ENABLED] = updated.dailyReminderEnabled
             preferences[AppPreferencesKeys.PREFERRED_THEME_MODE] = updated.preferredThemeMode
@@ -75,6 +88,7 @@ class DataStoreAppPreferencesRepository(
             isFirstLaunch = preferences[AppPreferencesKeys.IS_FIRST_LAUNCH] ?: true,
             hasCompletedOnboarding = preferences[AppPreferencesKeys.HAS_COMPLETED_ONBOARDING] ?: false,
             onboardingStep = preferences[AppPreferencesKeys.ONBOARDING_STEP] ?: 0,
+            dailyReelsAllowance = preferences[AppPreferencesKeys.DAILY_REELS_ALLOWANCE] ?: 30,
             quickProtectionToggle = preferences[AppPreferencesKeys.QUICK_PROTECTION_TOGGLE] ?: false,
             dailyReminderEnabled = preferences[AppPreferencesKeys.DAILY_REMINDER_ENABLED] ?: true,
             preferredThemeMode = preferences[AppPreferencesKeys.PREFERRED_THEME_MODE] ?: "SYSTEM",

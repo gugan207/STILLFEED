@@ -15,6 +15,7 @@ object AppPreferencesKeys {
     val IS_FIRST_LAUNCH = booleanPreferencesKey("is_first_launch")
     val HAS_COMPLETED_ONBOARDING = booleanPreferencesKey("has_completed_onboarding")
     val ONBOARDING_STEP = intPreferencesKey("onboarding_step")
+    val DAILY_REELS_ALLOWANCE = intPreferencesKey("daily_reels_allowance")
     val QUICK_PROTECTION_TOGGLE = booleanPreferencesKey("quick_protection_toggle")
     val DAILY_REMINDER_ENABLED = booleanPreferencesKey("daily_reminder_enabled")
     val PREFERRED_THEME_MODE = stringPreferencesKey("preferred_theme_mode")

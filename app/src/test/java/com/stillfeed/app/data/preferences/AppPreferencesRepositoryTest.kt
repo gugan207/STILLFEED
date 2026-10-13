@@ -53,9 +53,24 @@ class AppPreferencesRepositoryTest {
         assertTrue("Default isFirstLaunch must be true", prefs.isFirstLaunch)
         assertFalse("Default hasCompletedOnboarding must be false", prefs.hasCompletedOnboarding)
         assertEquals(0, prefs.onboardingStep)
+        assertEquals(30, prefs.dailyReelsAllowance)
         assertFalse("Default quickProtectionToggle must be false", prefs.quickProtectionToggle)
         assertTrue("Default dailyReminderEnabled must be true", prefs.dailyReminderEnabled)
         assertEquals("SYSTEM", prefs.preferredThemeMode)
+    }
+
+    @Test
+    fun setDailyReelsAllowance_updatesCorrectly() = runTest(testDispatcher) {
+        repository.setDailyReelsAllowance(20)
+        val prefs = repository.getPreferences()
+        assertEquals(20, prefs.dailyReelsAllowance)
+    }
+
+    @Test
+    fun setOnboardingStep_updatesCorrectly() = runTest(testDispatcher) {
+        repository.setOnboardingStep(3)
+        val prefs = repository.getPreferences()
+        assertEquals(3, prefs.onboardingStep)
     }
 
     @Test

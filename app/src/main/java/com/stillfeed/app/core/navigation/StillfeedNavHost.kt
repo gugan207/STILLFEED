@@ -21,29 +21,34 @@ import com.stillfeed.app.auth.repository.AuthRepository
 import com.stillfeed.app.auth.ui.AuthGate
 import com.stillfeed.app.auth.ui.AuthLoadingSplash
 import com.stillfeed.app.auth.ui.AuthViewModel
+import com.stillfeed.app.domain.repository.AppPreferencesRepository
 import com.stillfeed.app.feature.awareness.AwarenessSelectionScreen
 import com.stillfeed.app.feature.awareness.AwarenessViewModel
 import com.stillfeed.app.feature.bootstrap.BootstrapScreen
 import com.stillfeed.app.feature.home.HomeScreen
 import com.stillfeed.app.feature.insights.InsightsScreen
 import com.stillfeed.app.feature.insights.InsightsViewModel
+import com.stillfeed.app.feature.onboarding.OnboardingScreen
+import com.stillfeed.app.feature.onboarding.OnboardingViewModel
 import com.stillfeed.app.feature.settings.SettingsScreen
 import com.stillfeed.app.feature.settings.SettingsViewModel
 
 /**
  * Main application navigation host integrating the authentication navigation gate,
- * production Home dashboard, monthly awareness selection, historical Insights experience,
- * and comprehensive Settings experience.
+ * 5-screen onboarding sequence, production Home dashboard, monthly awareness selection,
+ * historical Insights experience, and comprehensive Settings experience.
  */
 @Composable
 fun StillfeedNavHost(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
     authRepository: AuthRepository? = null,
+    appPreferencesRepository: AppPreferencesRepository? = null,
     awarenessViewModel: AwarenessViewModel? = null,
     insightsViewModel: InsightsViewModel? = null,
     settingsViewModel: SettingsViewModel? = null,
-    startDestination: String = Screen.Home.route
+    onboardingViewModel: OnboardingViewModel? = null,
+    startDestination: String? = null
 ) {
     val app = LocalContext.current.applicationContext as? StillfeedApplication
     val repository = authRepository ?: app?.authRepository
@@ -62,13 +67,18 @@ fun StillfeedNavHost(
         }
     }
 
+    val prefRepo = appPreferencesRepository ?: app?.appPreferencesRepository
+    val preferences by (prefRepo?.observePreferences()?.collectAsState(initial = null)
+        ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(null) })
+
     val resolvedAwarenessVm: AwarenessViewModel? = awarenessViewModel ?: app?.let {
         viewModel(
             factory = AwarenessViewModel.provideFactory(
                 awarenessManager = it.awarenessManager,
                 usageAggregator = it.usageAggregator,
                 usageStatsDataSource = it.usageStatsDataSource,
-                protectionStateRepository = it.protectionStateRepository
+                protectionStateRepository = it.protectionStateRepository,
+                appPreferencesRepository = it.appPreferencesRepository
             )
         )
     }
@@ -101,6 +111,19 @@ fun StillfeedNavHost(
         )
     }
 
+    val resolvedOnboardingVm: OnboardingViewModel? = onboardingViewModel ?: app?.let { appInstance ->
+        prefRepo?.let { preferencesRepository ->
+            viewModel(
+                factory = OnboardingViewModel.provideFactory(
+                    appPreferencesRepository = preferencesRepository,
+                    accessibilityPermissionChecker = appInstance.accessibilityPermissionChecker,
+                    usageStatsDataSource = appInstance.usageStatsDataSource,
+                    protectionStateRepository = appInstance.protectionStateRepository
+                )
+            )
+        }
+    }
+
     val authState by authVm.currentAuthState.collectAsState()
 
     when (authState) {
@@ -123,10 +146,11 @@ fun StillfeedNavHost(
                 }
             }
 
-            val effectiveStartDestination = if (startDestination == Screen.Auth.route) {
-                Screen.Home.route
-            } else {
-                startDestination
+            val hasCompletedOnboarding = preferences?.hasCompletedOnboarding ?: false
+            val effectiveStartDestination = when {
+                startDestination != null && startDestination != Screen.Auth.route -> startDestination
+                hasCompletedOnboarding -> Screen.Home.route
+                else -> Screen.Onboarding.route
             }
 
             NavHost(
@@ -138,6 +162,21 @@ fun StillfeedNavHost(
                 popEnterTransition = { EnterTransition.None },
                 popExitTransition = { ExitTransition.None }
             ) {
+                composable(route = Screen.Onboarding.route) {
+                    resolvedOnboardingVm?.let { vm ->
+                        OnboardingScreen(
+                            viewModel = vm,
+                            onNavigateToHome = {
+                                navController.navigate(Screen.Home.route) {
+                                    popUpTo(Screen.Onboarding.route) {
+                                        inclusive = true
+                                    }
+                                    launchSingleTop = true
+                                }
+                            }
+                        )
+                    } ?: BootstrapScreen()
+                }
                 composable(route = Screen.Home.route) {
                     resolvedAwarenessVm?.let { vm ->
                         HomeScreen(
@@ -150,6 +189,9 @@ fun StillfeedNavHost(
                             },
                             onNavigateToSettings = {
                                 navigateToTab(Screen.Settings.route)
+                            },
+                            onResetActivity = {
+                                // Prepared navigation contract for Step 19 Reset -> Awareness Cards -> Unlock flow
                             }
                         )
                     } ?: BootstrapScreen()
