@@ -308,19 +308,8 @@ fun StillfeedNavHost(
                                 ?: com.stillfeed.app.usage.stats.AndroidUsageStatsDataSource(LocalContext.current)
                         )
                     )
-                    val context = LocalContext.current
                     PermissionDisabledScreen(
                         viewModel = permissionDisabledVm,
-                        onOpenAccessibilitySettings = {
-                            try {
-                                context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                            } catch (_: Exception) {}
-                        },
-                        onOpenUsageAccessSettings = {
-                            try {
-                                context.startActivity(Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                            } catch (_: Exception) {}
-                        },
                         onNavigateToHome = { navigateToTab(Screen.Home.route) },
                         onNavigateToInsights = { navigateToTab(Screen.Insights.route) },
                         onNavigateToSettings = { navigateToTab(Screen.Settings.route) }
