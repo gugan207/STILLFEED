@@ -43,6 +43,7 @@ class StillfeedAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        isRunning = true
         initializeDependencies()
     }
 
@@ -97,10 +98,14 @@ class StillfeedAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        isRunning = false
         serviceScope.cancel()
     }
 
     companion object {
+        var isRunning: Boolean = false
+            internal set
+
         val MONITORED_PACKAGES = setOf(
             "com.instagram.android",
             "com.google.android.youtube"

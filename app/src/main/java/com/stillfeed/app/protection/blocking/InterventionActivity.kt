@@ -42,6 +42,14 @@ class InterventionActivity : ComponentActivity() {
 
         val blockedPackage = intent.getStringExtra(EXTRA_BLOCKED_PACKAGE) ?: ""
         val surfaceCategory = intent.getStringExtra(EXTRA_SURFACE_CATEGORY) ?: "Reel"
+        val startStepName = intent.getStringExtra(EXTRA_START_STEP)
+        val initialStep = startStepName?.let {
+            try {
+                InterventionStep.valueOf(it)
+            } catch (_: Exception) {
+                InterventionStep.BLOCKED_REEL
+            }
+        } ?: InterventionStep.BLOCKED_REEL
 
         val app = application as? StillfeedApplication
 
@@ -53,7 +61,8 @@ class InterventionActivity : ComponentActivity() {
                             unlockSessionRepository = it.unlockSessionRepository,
                             usageRepository = it.usageRepository,
                             blockedPackage = blockedPackage,
-                            surfaceCategory = surfaceCategory
+                            surfaceCategory = surfaceCategory,
+                            initialStep = initialStep
                         )
                     } ?: throw IllegalStateException("StillfeedApplication must be initialized.")
                 )
@@ -135,5 +144,6 @@ class InterventionActivity : ComponentActivity() {
     companion object {
         const val EXTRA_BLOCKED_PACKAGE = "extra_blocked_package"
         const val EXTRA_SURFACE_CATEGORY = "extra_surface_category"
+        const val EXTRA_START_STEP = "extra_start_step"
     }
 }

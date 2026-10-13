@@ -15,6 +15,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import android.content.Intent
 import com.stillfeed.app.StillfeedApplication
 import com.stillfeed.app.auth.model.AuthState
 import com.stillfeed.app.auth.repository.AuthRepository
@@ -25,6 +26,15 @@ import com.stillfeed.app.domain.repository.AppPreferencesRepository
 import com.stillfeed.app.feature.awareness.AwarenessSelectionScreen
 import com.stillfeed.app.feature.awareness.AwarenessViewModel
 import com.stillfeed.app.feature.bootstrap.BootstrapScreen
+import com.stillfeed.app.feature.edgestates.BatchFinishedScreen
+import com.stillfeed.app.feature.edgestates.BatchFinishedViewModel
+import com.stillfeed.app.feature.edgestates.FirstDayScreen
+import com.stillfeed.app.feature.edgestates.FirstDayViewModel
+import com.stillfeed.app.feature.edgestates.OfflineScreen
+import com.stillfeed.app.feature.edgestates.OfflineViewModel
+import com.stillfeed.app.feature.edgestates.PermissionDisabledScreen
+import com.stillfeed.app.feature.edgestates.PermissionDisabledViewModel
+import com.stillfeed.app.feature.edgestates.connectivity.AndroidNetworkConnectivityObserver
 import com.stillfeed.app.feature.home.HomeScreen
 import com.stillfeed.app.feature.insights.InsightsScreen
 import com.stillfeed.app.feature.insights.InsightsViewModel
@@ -32,6 +42,9 @@ import com.stillfeed.app.feature.onboarding.OnboardingScreen
 import com.stillfeed.app.feature.onboarding.OnboardingViewModel
 import com.stillfeed.app.feature.settings.SettingsScreen
 import com.stillfeed.app.feature.settings.SettingsViewModel
+import com.stillfeed.app.protection.accessibility.StillfeedAccessibilityService
+import com.stillfeed.app.protection.blocking.InterventionActivity
+import com.stillfeed.app.protection.intervention.ui.InterventionStep
 
 /**
  * Main application navigation host integrating the authentication navigation gate,
@@ -191,7 +204,10 @@ fun StillfeedNavHost(
                                 navigateToTab(Screen.Settings.route)
                             },
                             onResetActivity = {
-                                // Prepared navigation contract for Step 19 Reset -> Awareness Cards -> Unlock flow
+                                navController.navigate(Screen.ResetActivity.route)
+                            },
+                            onNavigateToPermissionDisabled = {
+                                navController.navigate(Screen.PermissionDisabled.route)
                             }
                         )
                     } ?: BootstrapScreen()
@@ -246,6 +262,115 @@ fun StillfeedNavHost(
                             }
                         )
                     }
+                }
+
+                composable(route = Screen.ResetActivity.route) {
+                    val context = LocalContext.current
+                    androidx.compose.runtime.LaunchedEffect(Unit) {
+                        val intent = Intent(context, InterventionActivity::class.java).apply {
+                            putExtra(InterventionActivity.EXTRA_SURFACE_CATEGORY, "ResetActivity")
+                            putExtra(InterventionActivity.EXTRA_START_STEP, InterventionStep.RESET_SELECTION.name)
+                        }
+                        context.startActivity(intent)
+                        navController.popBackStack()
+                    }
+                }
+
+                composable(route = Screen.BatchFinished.route) {
+                    val batchFinishedVm: BatchFinishedViewModel = viewModel(
+                        factory = BatchFinishedViewModel.provideFactory(
+                            usageAggregator = app?.usageAggregator,
+                            initialDailyAllowanceReels = preferences?.dailyReelsAllowance ?: 30
+                        )
+                    )
+                    BatchFinishedScreen(
+                        viewModel = batchFinishedVm,
+                        onChooseReset = {
+                            navController.navigate(Screen.ResetActivity.route)
+                        },
+                        onKeepChatting = {
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.Home.route) { inclusive = true }
+                            }
+                        },
+                        onNavigateToHome = { navigateToTab(Screen.Home.route) },
+                        onNavigateToInsights = { navigateToTab(Screen.Insights.route) },
+                        onNavigateToSettings = { navigateToTab(Screen.Settings.route) }
+                    )
+                }
+
+                composable(route = Screen.PermissionDisabled.route) {
+                    val permissionDisabledVm: PermissionDisabledViewModel = viewModel(
+                        factory = PermissionDisabledViewModel.provideFactory(
+                            accessibilityPermissionChecker = app?.accessibilityPermissionChecker
+                                ?: com.stillfeed.app.protection.permission.AndroidAccessibilityPermissionChecker(LocalContext.current),
+                            usageStatsDataSource = app?.usageStatsDataSource
+                                ?: com.stillfeed.app.usage.stats.AndroidUsageStatsDataSource(LocalContext.current)
+                        )
+                    )
+                    val context = LocalContext.current
+                    PermissionDisabledScreen(
+                        viewModel = permissionDisabledVm,
+                        onOpenAccessibilitySettings = {
+                            try {
+                                context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                            } catch (_: Exception) {}
+                        },
+                        onOpenUsageAccessSettings = {
+                            try {
+                                context.startActivity(Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                            } catch (_: Exception) {}
+                        },
+                        onNavigateToHome = { navigateToTab(Screen.Home.route) },
+                        onNavigateToInsights = { navigateToTab(Screen.Insights.route) },
+                        onNavigateToSettings = { navigateToTab(Screen.Settings.route) }
+                    )
+                }
+
+                composable(route = Screen.Offline.route) {
+                    val context = LocalContext.current
+                    val offlineVm: OfflineViewModel = viewModel(
+                        factory = OfflineViewModel.provideFactory(
+                            networkConnectivityObserver = app?.let {
+                                AndroidNetworkConnectivityObserver(it)
+                            } ?: AndroidNetworkConnectivityObserver(context),
+                            accessibilityPermissionChecker = app?.accessibilityPermissionChecker
+                                ?: com.stillfeed.app.protection.permission.AndroidAccessibilityPermissionChecker(context),
+                            usageStatsDataSource = app?.usageStatsDataSource
+                                ?: com.stillfeed.app.usage.stats.AndroidUsageStatsDataSource(context),
+                            protectionStateRepository = app?.protectionStateRepository,
+                            protectionEngine = app?.protectionEngine,
+                            isServiceRunningProvider = { StillfeedAccessibilityService.isRunning },
+                            usageAggregator = app?.usageAggregator
+                        )
+                    )
+                    OfflineScreen(
+                        viewModel = offlineVm,
+                        onNavigateToHome = { navigateToTab(Screen.Home.route) },
+                        onNavigateToInsights = { navigateToTab(Screen.Insights.route) },
+                        onNavigateToSettings = { navigateToTab(Screen.Settings.route) }
+                    )
+                }
+
+                composable(route = Screen.FirstDay.route) {
+                    val firstDayVm: FirstDayViewModel = viewModel(
+                        factory = FirstDayViewModel.provideFactory(
+                            usageAggregator = app?.usageAggregator,
+                            usageStatsDataSource = app?.usageStatsDataSource,
+                            usageRepository = app?.usageRepository
+                        )
+                    )
+                    FirstDayScreen(
+                        viewModel = firstDayVm,
+                        onOpenStillfeed = {
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.FirstDay.route) { inclusive = true }
+                            }
+                        },
+                        onNavigateToHome = { navigateToTab(Screen.Home.route) },
+                        onNavigateToInsights = { navigateToTab(Screen.Insights.route) },
+                        onNavigateToSettings = { navigateToTab(Screen.Settings.route) }
+                    )
                 }
 
                 composable(route = Screen.Bootstrap.route) {

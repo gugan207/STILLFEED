@@ -9,4 +9,8 @@ sealed class Screen(val route: String) {
     data object Insights : Screen("insights")
     data object Settings : Screen("settings")
     data object ResetActivity : Screen("reset_activity")
+    data object BatchFinished : Screen("batch_finished")
+    data object PermissionDisabled : Screen("permission_disabled")
+    data object Offline : Screen("offline")
+    data object FirstDay : Screen("first_day")
 }

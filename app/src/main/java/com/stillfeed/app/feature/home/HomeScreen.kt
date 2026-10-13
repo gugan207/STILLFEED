@@ -1,6 +1,7 @@
 package com.stillfeed.app.feature.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,7 +69,8 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onNavigateToInsights: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
-    onResetActivity: () -> Unit = {}
+    onResetActivity: () -> Unit = {},
+    onNavigateToPermissionDisabled: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -285,7 +287,9 @@ fun HomeScreen(
             // 5. PROTECTION STATUS WARNING (Preserve protection visibility)
             if (!uiState.isProtectionEnabled || !uiState.hasUsageStatsPermission) {
                 Spacer(modifier = Modifier.height(StillfeedTheme.spacing.lg))
-                StillfeedCard {
+                StillfeedCard(
+                    modifier = Modifier.clickable { onNavigateToPermissionDisabled() }
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -299,7 +303,7 @@ fun HomeScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Check permissions in Settings to resume monitoring.",
+                                text = "Tap to review missing permissions and resume monitoring.",
                                 style = StillfeedTheme.typography.bodySmall,
                                 color = StillfeedTheme.colors.textSecondary
                             )
@@ -314,12 +318,7 @@ fun HomeScreen(
             // 6. RESET ACTIVITY CTA (Figma Node 39:103 & 39:137)
             StillfeedPrimaryButton(
                 text = "Reset activity",
-                onClick = {
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar("Reset activity will be available in the next update.")
-                    }
-                    onResetActivity()
-                }
+                onClick = onResetActivity
             )
         }
     }

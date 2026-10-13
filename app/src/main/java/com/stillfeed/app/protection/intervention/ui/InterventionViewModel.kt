@@ -60,11 +60,13 @@ class InterventionViewModel(
     private val unlockSessionRepository: UnlockSessionRepository,
     private val usageRepository: UsageRepository? = null,
     initialPackage: String = "",
-    initialSurface: String = "Reel"
+    initialSurface: String = "Reel",
+    private val initialStep: InterventionStep = InterventionStep.BLOCKED_REEL
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
         InterventionUiState(
+            currentStep = initialStep,
             blockedPackage = initialPackage,
             surfaceCategory = initialSurface
         )
@@ -291,6 +293,9 @@ class InterventionViewModel(
                 return false
             }
             InterventionStep.RESET_SELECTION -> {
+                if (initialStep == InterventionStep.RESET_SELECTION) {
+                    return false
+                }
                 _uiState.update { it.copy(currentStep = InterventionStep.BLOCKED_REEL) }
                 return true
             }
@@ -325,7 +330,8 @@ class InterventionViewModel(
             unlockSessionRepository: UnlockSessionRepository,
             usageRepository: UsageRepository?,
             blockedPackage: String,
-            surfaceCategory: String
+            surfaceCategory: String,
+            initialStep: InterventionStep = InterventionStep.BLOCKED_REEL
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -333,7 +339,8 @@ class InterventionViewModel(
                     unlockSessionRepository = unlockSessionRepository,
                     usageRepository = usageRepository,
                     initialPackage = blockedPackage,
-                    initialSurface = surfaceCategory
+                    initialSurface = surfaceCategory,
+                    initialStep = initialStep
                 ) as T
             }
         }
