@@ -30,6 +30,9 @@ interface RemoteAuthDataSource {
     suspend fun verifyEmailOtp(email: String, token: String, type: String = "signup"): Result<RemoteAuthResponse> =
         Result.failure(UnsupportedOperationException("Email OTP verification not implemented"))
 
+    suspend fun verifyTokenHash(tokenHash: String, type: String = "recovery"): Result<RemoteAuthResponse> =
+        Result.failure(UnsupportedOperationException("Token hash verification not implemented"))
+
     suspend fun resendOtp(email: String, type: String = "signup"): Result<Unit> =
         Result.failure(UnsupportedOperationException("Resend OTP not implemented"))
 

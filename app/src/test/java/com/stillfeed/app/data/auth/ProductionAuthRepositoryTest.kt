@@ -571,6 +571,50 @@ class ProductionAuthRepositoryTest {
     }
 
     @Test
+    fun handleRecoveryLink_withAccessToken_butMissingOrWrongType_returnsFailure() = runTest(testDispatcher) {
+        // Missing type
+        val linkMissingType = "stillfeed://reset-password#access_token=valid_token_123"
+        val resultMissing = repository.handleRecoveryLink(linkMissingType)
+        assertTrue(resultMissing.isFailure)
+        assertTrue(resultMissing.exceptionOrNull()?.message?.contains("unexpected flow type") == true)
+
+        // Wrong type (e.g. signup)
+        val linkWrongType = "stillfeed://reset-password#access_token=valid_token_123&type=signup"
+        val resultWrong = repository.handleRecoveryLink(linkWrongType)
+        assertTrue(resultWrong.isFailure)
+        assertTrue(resultWrong.exceptionOrNull()?.message?.contains("unexpected flow type 'signup'") == true)
+    }
+
+    @Test
+    fun handleRecoveryLink_withValidTokenHashAndRecoveryType_verifiesViaTokenHashAndEstablishesSession() = runTest(testDispatcher) {
+        val link = "stillfeed://reset-password?token_hash=th_abc123xyz&type=recovery"
+        val result = repository.handleRecoveryLink(link)
+        assertTrue(result.isSuccess)
+        assertEquals("th_abc123xyz", remoteAuthDataSource.lastVerifiedTokenHash)
+
+        // Can now reset password
+        val resetResult = repository.resetPassword("NewSecurePassword123!")
+        assertTrue(resetResult.isSuccess)
+        assertEquals("NewSecurePassword123!", remoteAuthDataSource.updatedPasswordForToken)
+    }
+
+    @Test
+    fun handleRecoveryLink_withTokenHash_butWrongType_returnsFailure() = runTest(testDispatcher) {
+        val link = "stillfeed://reset-password?token_hash=th_abc123xyz&type=magiclink"
+        val result = repository.handleRecoveryLink(link)
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()?.message?.contains("unexpected flow type 'magiclink'") == true)
+    }
+
+    @Test
+    fun handleRecoveryLink_withTokenHash_whenRemoteFails_returnsFailure() = runTest(testDispatcher) {
+        remoteAuthDataSource.simulateTokenHashError = true
+        val link = "stillfeed://reset-password?token_hash=expired_hash&type=recovery"
+        val result = repository.handleRecoveryLink(link)
+        assertTrue(result.isFailure)
+    }
+
+    @Test
     fun resetPassword_withWeakPassword_failsValidationWithoutCallingRemote() = runTest(testDispatcher) {
         repository.handleRecoveryLink("stillfeed://reset-password#access_token=dummy_token_abc&type=recovery")
 

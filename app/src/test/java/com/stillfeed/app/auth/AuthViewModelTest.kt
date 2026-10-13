@@ -291,6 +291,16 @@ class AuthViewModelTest {
     }
 
     @Test
+    fun handleDeepLink_withUnrelatedFlowType_showsErrorInForgotPasswordMode() = testScope.runTest {
+        val unrelatedUri = "stillfeed://reset-password#access_token=token_123&type=signup"
+        viewModel.handleDeepLink(unrelatedUri)
+        advanceUntilIdle()
+
+        assertEquals(com.stillfeed.app.auth.ui.AuthScreenMode.FORGOT_PASSWORD, viewModel.uiState.value.currentMode)
+        assertTrue(viewModel.uiState.value.errorMessage?.contains("unexpected flow type") == true)
+    }
+
+    @Test
     fun submitResetPassword_withWeakPassword_showsValidationMessage() = testScope.runTest {
         viewModel.handleDeepLink("stillfeed://reset-password#access_token=token_123&type=recovery")
         advanceUntilIdle()

@@ -220,6 +220,28 @@ class InMemoryRemoteAuthDataSource : RemoteAuthDataSource {
         return Result.success(Unit)
     }
 
+    var lastVerifiedTokenHash: String? = null
+    var simulateTokenHashError: Boolean = false
+
+    override suspend fun verifyTokenHash(tokenHash: String, type: String): Result<RemoteAuthResponse> {
+        if (simulateNetworkError) return Result.failure(IOException("Network timeout during token hash verification"))
+        if (simulateTokenHashError || tokenHash.isBlank() || type != "recovery") {
+            return Result.failure(IllegalArgumentException("Invalid or expired recovery token hash"))
+        }
+        lastVerifiedTokenHash = tokenHash
+        return Result.success(
+            RemoteAuthResponse(
+                userId = "user_recovered_123",
+                email = "user@example.com",
+                displayName = "Recovered User",
+                accessToken = "jwt_recovery_access_${UUID.randomUUID()}",
+                refreshToken = "jwt_recovery_refresh_${UUID.randomUUID()}",
+                expiresInSeconds = 3600L,
+                registeredDeviceBindingId = null
+            )
+        )
+    }
+
     override suspend fun updatePassword(accessToken: String, newPassword: CharSequence): Result<Unit> {
         if (simulateNetworkError) return Result.failure(IOException("Network timeout during password update"))
         if (simulateUpdatePasswordError) return Result.failure(IllegalArgumentException("Invalid or expired session"))

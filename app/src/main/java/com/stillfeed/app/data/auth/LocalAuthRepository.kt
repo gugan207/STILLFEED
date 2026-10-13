@@ -174,6 +174,8 @@ class LocalAuthRepository(
     override suspend fun handleRecoveryLink(deepLinkUri: String): Result<Unit> = withContext(ioDispatcher) {
         if (deepLinkUri.contains("error")) {
             Result.failure(IllegalArgumentException("This password reset link has expired or is invalid. Please request a new link."))
+        } else if (!deepLinkUri.contains("type=recovery")) {
+            Result.failure(IllegalArgumentException("Invalid recovery link: unexpected flow type. Expected 'recovery'."))
         } else {
             Result.success(Unit)
         }

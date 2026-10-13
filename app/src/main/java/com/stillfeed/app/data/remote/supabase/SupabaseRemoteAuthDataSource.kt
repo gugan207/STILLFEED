@@ -40,6 +40,15 @@ class SupabaseRemoteAuthDataSource(
         }
     }
 
+    override suspend fun verifyTokenHash(
+        tokenHash: String,
+        type: String
+    ): Result<RemoteAuthResponse> {
+        return client.authVerifyTokenHash(tokenHash, type).mapCatching { jsonStr ->
+            parseAuthResponse(jsonStr, fallbackEmail = null, fallbackDisplayName = null)
+        }
+    }
+
     override suspend fun resendOtp(
         email: String,
         type: String

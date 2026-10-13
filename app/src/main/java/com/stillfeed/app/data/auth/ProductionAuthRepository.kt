@@ -280,29 +280,51 @@ class ProductionAuthRepository(
             return@withContext Result.failure(IllegalArgumentException(errorDescription))
         }
 
-        // Check for direct access_token in fragment (#access_token=...) or query (?access_token=...)
+        val type = params["type"]
+
+        // 1. Direct recovery access_token in fragment (#access_token=...) or query (?access_token=...)
         val accessToken = params["access_token"]
         if (!accessToken.isNullOrBlank()) {
+            if (type != "recovery") {
+                activeRecoveryAccessToken = null
+                return@withContext Result.failure(
+                    IllegalArgumentException("Invalid recovery link: unexpected flow type '$type'. Expected 'recovery'.")
+                )
+            }
             activeRecoveryAccessToken = accessToken
             return@withContext Result.success(Unit)
         }
 
-        // Check for token or token_hash (e.g. from /verify?token=...&type=recovery)
-        val token = params["token"] ?: params["token_hash"]
-        if (!token.isNullOrBlank()) {
-            val verifyResult = remoteAuthDataSource.verifyEmailOtp(email = "", token = token, type = "recovery")
+        // 2. Token-hash verification fallback (e.g. ?token_hash=...&type=recovery or #token_hash=...)
+        val tokenHash = params["token_hash"]
+        if (!tokenHash.isNullOrBlank()) {
+            if (type != "recovery") {
+                activeRecoveryAccessToken = null
+                return@withContext Result.failure(
+                    IllegalArgumentException("Invalid recovery link: unexpected flow type '$type'. Expected 'recovery'.")
+                )
+            }
+            val verifyResult = remoteAuthDataSource.verifyTokenHash(tokenHash = tokenHash, type = "recovery")
             if (verifyResult.isSuccess) {
                 val response = verifyResult.getOrThrow()
-                activeRecoveryAccessToken = response.accessToken
-                return@withContext Result.success(Unit)
+                if (response.accessToken.isNotBlank()) {
+                    activeRecoveryAccessToken = response.accessToken
+                    return@withContext Result.success(Unit)
+                } else {
+                    activeRecoveryAccessToken = null
+                    return@withContext Result.failure(
+                        IllegalArgumentException("Recovery verification failed to produce an active session.")
+                    )
+                }
             } else {
                 activeRecoveryAccessToken = null
-                val exception = verifyResult.exceptionOrNull() ?: RuntimeException("Invalid token")
+                val exception = verifyResult.exceptionOrNull() ?: RuntimeException("Invalid or expired token hash")
                 val authError = mapToAuthError(exception, isSignUp = false)
                 return@withContext Result.failure(IllegalArgumentException(authError.userMessage))
             }
         }
 
+        activeRecoveryAccessToken = null
         Result.failure(IllegalArgumentException("Malformed or unrecognized password reset link."))
     }
 

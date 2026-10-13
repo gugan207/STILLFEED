@@ -141,6 +141,27 @@ class SupabaseHttpClient(
     }
 
     /**
+     * Executes Supabase Auth token hash verification (/auth/v1/verify).
+     * Used when a password recovery email link contains a token_hash rather than an access_token.
+     */
+    suspend fun authVerifyTokenHash(
+        tokenHash: String,
+        type: String = "recovery"
+    ): Result<String> = withContext(ioDispatcher) {
+        val endpoint = "$baseUrl${SupabaseConfig.AUTH_PATH}/verify"
+        val payload = JSONObject().apply {
+            put("token_hash", tokenHash.trim())
+            put("type", type)
+        }
+        sendRequest(
+            endpoint = endpoint,
+            method = "POST",
+            body = payload.toString(),
+            accessToken = null
+        )
+    }
+
+    /**
      * Executes Supabase Auth resend token (/auth/v1/resend).
      */
     suspend fun authResendOtp(
