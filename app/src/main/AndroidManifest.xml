@@ -48,6 +48,17 @@
                     android:host="auth"
                     android:path="/callback" />
             </intent-filter>
+
+            <!-- Development Fallback: intercepts Supabase default Site URL (http://localhost:3000) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="http"
+                    android:host="localhost"
+                    android:port="3000" />
+            </intent-filter>
         </activity>
 
         <service
