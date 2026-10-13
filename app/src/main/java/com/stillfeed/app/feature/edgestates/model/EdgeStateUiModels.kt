@@ -62,7 +62,7 @@ data class PermissionDisabledUiState(
     val isUsageAccessGranted: Boolean = false,
     val isProtectionPaused: Boolean = !isAccessibilityGranted || !isUsageAccessGranted,
     val headline: String = "Your protection is paused.",
-    val body: String = "SKILLFEED needs permission to keep short video blocked.",
+    val body: String = "STILLFEED needs permission to keep short video blocked.",
     val cardTitle: String = "Access needs attention.",
     val cardDetail: String = "Your Stories and DMs remain yours.",
     val accessibilityTitle: String = "Accessibility Service",
@@ -113,6 +113,7 @@ data class OfflineUiState(
  *
  * Requirements:
  * - Supports a genuine new-user or no-history state.
+ * - Distinguishes genuine first-day state from returning user's zero-usage-today state.
  * - Explains what will appear as reliable usage data becomes available.
  * - Does not fabricate daily or historical Reel counts.
  * - Keeps todayReelsWatched strictly null when Reel-count tracking is unavailable.
@@ -121,13 +122,41 @@ data class OfflineUiState(
  */
 data class FirstDayUiState(
     val isFirstDay: Boolean = true,
+    val hasHistoricalUsage: Boolean = false,
     val todayReelsWatched: Int? = null, // null when unavailable; 0 only if confirmed by reliable source
     val todayMonitoredMinutes: Int? = null, // null when unavailable; 0 when verified 0m; >0 when monitored
     val isReelsCountAvailable: Boolean = false,
     val isUsageAccessGranted: Boolean = true,
-    val isUsageDataAvailable: Boolean = true,
-    val headline: String = "Start with noticing.",
-    val body: String = "There’s no baseline yet. SKILLFEED will learn your rhythm without judging it.",
-    val mindStateLabel: String = "Your mind looks fresh.",
-    val referenceNote: String = "Your first week becomes your reference point."
-)
+    val isUsageDataAvailable: Boolean = true
+) {
+    val headline: String
+        get() = when {
+            !isUsageAccessGranted -> "Permission needed to monitor."
+            !isUsageDataAvailable -> "Usage data unavailable."
+            isFirstDay -> "Start with noticing."
+            todayMonitoredMinutes == 0 -> "No usage recorded today."
+            else -> "Today's rhythm."
+        }
+
+    val body: String
+        get() = when {
+            !isUsageAccessGranted -> "STILLFEED needs Usage Access permission to measure attention across monitored apps."
+            !isUsageDataAvailable -> "Unable to refresh usage metrics from device storage right now."
+            isFirstDay -> "There’s no baseline yet. STILLFEED will learn your rhythm without judging it."
+            todayMonitoredMinutes == 0 -> "You haven’t spent monitored time in Instagram or YouTube yet today."
+            else -> "Your attention rhythm for today across monitored apps."
+        }
+
+    val mindStateLabel: String
+        get() = when {
+            isFirstDay -> "Your mind looks fresh."
+            todayMonitoredMinutes == 0 -> "Quiet"
+            else -> "Calm"
+        }
+
+    val referenceNote: String
+        get() = when {
+            isFirstDay -> "Your first week becomes your reference point."
+            else -> "Your ongoing rhythm continues on-device."
+        }
+}

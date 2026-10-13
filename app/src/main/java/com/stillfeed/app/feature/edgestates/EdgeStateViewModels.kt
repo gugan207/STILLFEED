@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.stillfeed.app.domain.repository.ProtectionStateRepository
+import com.stillfeed.app.domain.repository.UsageRepository
 import com.stillfeed.app.feature.edgestates.connectivity.NetworkConnectivityObserver
 import com.stillfeed.app.feature.edgestates.model.BatchFinishedUiState
 import com.stillfeed.app.feature.edgestates.model.FirstDayUiState
@@ -14,6 +15,9 @@ import com.stillfeed.app.protection.engine.ProtectionEngine
 import com.stillfeed.app.protection.permission.AccessibilityPermissionChecker
 import com.stillfeed.app.usage.aggregation.UsageAggregator
 import com.stillfeed.app.usage.stats.UsageStatsDataSource
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -352,13 +356,15 @@ class OfflineViewModel(
  * ViewModel for Screen 18 — First Day / Empty State (Figma Node 70:261).
  *
  * Requirements:
+ * - Distinguishes genuine first-day/no-history from returning user's zero-usage-today state.
  * - When Reel-count tracking is unavailable, keep todayReelsWatched = null.
  * - Do not convert zero monitored minutes into zero Reels watched.
  * - Distinguish unavailable Usage Access data from verified zero monitored time.
  */
 class FirstDayViewModel(
     private val usageAggregator: UsageAggregator? = null,
-    private val usageStatsDataSource: UsageStatsDataSource? = null
+    private val usageStatsDataSource: UsageStatsDataSource? = null,
+    private val usageRepository: UsageRepository? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FirstDayUiState())
@@ -375,7 +381,8 @@ class FirstDayViewModel(
             if (!hasPermission) {
                 _uiState.update {
                     it.copy(
-                        isFirstDay = true,
+                        isFirstDay = false,
+                        hasHistoricalUsage = false,
                         isUsageAccessGranted = false,
                         isUsageDataAvailable = false,
                         todayMonitoredMinutes = null,
@@ -386,10 +393,11 @@ class FirstDayViewModel(
                 return@launch
             }
 
-            if (usageAggregator == null) {
+            if (usageAggregator == null && usageRepository == null) {
                 _uiState.update {
                     it.copy(
-                        isFirstDay = true,
+                        isFirstDay = false,
+                        hasHistoricalUsage = false,
                         isUsageAccessGranted = true,
                         isUsageDataAvailable = false,
                         todayMonitoredMinutes = null,
@@ -401,13 +409,38 @@ class FirstDayViewModel(
             }
 
             try {
-                val todaySummary = usageAggregator.getTodayUsage(nowMillis)
-                val todayMins = (todaySummary.totalMonitoredMillis / 60000L).toInt()
-                val isFirstDay = todayMins == 0
+                val nowZdt = ZonedDateTime.ofInstant(
+                    Instant.ofEpochMilli(nowMillis),
+                    ZoneOffset.UTC
+                )
+                val startOfDayMillis = nowZdt.toLocalDate()
+                    .atStartOfDay(ZoneOffset.UTC)
+                    .toInstant()
+                    .toEpochMilli()
+
+                // Check prior history before today
+                val hasPriorHistory = when {
+                    usageRepository != null -> {
+                        usageRepository.getEventsInRange(0L, startOfDayMillis).isNotEmpty()
+                    }
+                    usageAggregator != null -> {
+                        val historicalSummaries = usageAggregator.getHistoricalDailySummaries(0L, startOfDayMillis)
+                        historicalSummaries.isNotEmpty()
+                    }
+                    else -> false
+                }
+
+                val todaySummary = usageAggregator?.getTodayUsage(nowMillis)
+                val todayMins = todaySummary?.let {
+                    (it.totalMonitoredMillis / 60000L).toInt()
+                } ?: 0
+
+                val isGenuineFirstDay = !hasPriorHistory && todayMins == 0
 
                 _uiState.update {
                     it.copy(
-                        isFirstDay = isFirstDay,
+                        isFirstDay = isGenuineFirstDay,
+                        hasHistoricalUsage = hasPriorHistory,
                         isUsageAccessGranted = true,
                         isUsageDataAvailable = true,
                         todayMonitoredMinutes = todayMins,
@@ -418,7 +451,8 @@ class FirstDayViewModel(
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
-                        isFirstDay = true,
+                        isFirstDay = false,
+                        hasHistoricalUsage = false,
                         isUsageAccessGranted = true,
                         isUsageDataAvailable = false,
                         todayMonitoredMinutes = null,
@@ -433,13 +467,15 @@ class FirstDayViewModel(
     companion object {
         fun provideFactory(
             usageAggregator: UsageAggregator? = null,
-            usageStatsDataSource: UsageStatsDataSource? = null
+            usageStatsDataSource: UsageStatsDataSource? = null,
+            usageRepository: UsageRepository? = null
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 return FirstDayViewModel(
                     usageAggregator = usageAggregator,
-                    usageStatsDataSource = usageStatsDataSource
+                    usageStatsDataSource = usageStatsDataSource,
+                    usageRepository = usageRepository
                 ) as T
             }
         }

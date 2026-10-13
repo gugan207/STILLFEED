@@ -328,21 +328,88 @@ class EdgeStateScreensTest {
     // =========================================================================
 
     @Test
+    fun firstDay_whenNewUserWithNoHistory_detectsGenuineFirstDay() = runTest(testDispatcher) {
+        fakeUsageStatsSource.hasPermission = true
+
+        val viewModel = FirstDayViewModel(
+            usageAggregator = usageAggregator,
+            usageStatsDataSource = fakeUsageStatsSource,
+            usageRepository = fakeUsageRepository
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue("Must detect genuine first day when no prior history exists", state.isFirstDay)
+        assertFalse("Must not have historical usage", state.hasHistoricalUsage)
+        assertTrue(state.isUsageAccessGranted)
+        assertTrue(state.isUsageDataAvailable)
+        assertEquals(0, state.todayMonitoredMinutes)
+        assertNull("Reels count must remain null when single-reel tracking is unintercepted", state.todayReelsWatched)
+        assertEquals("Start with noticing.", state.headline)
+        assertEquals("There’s no baseline yet. STILLFEED will learn your rhythm without judging it.", state.body)
+        assertEquals("Your mind looks fresh.", state.mindStateLabel)
+        assertEquals("Your first week becomes your reference point.", state.referenceNote)
+    }
+
+    @Test
+    fun firstDay_whenReturningUserWithHistoryAndZeroMinutesToday_displaysNoUsageRecordedToday() = runTest(testDispatcher) {
+        fakeUsageStatsSource.hasPermission = true
+
+        val nowMillis = 1700000000000L // 2023-11-14T22:13:20Z
+        val yesterdayMillis = nowMillis - 86400000L // 2023-11-13T22:13:20Z
+
+        // Record historical event before today
+        fakeUsageRepository.recordEvent(
+            UsageEvent(
+                id = "ev_yesterday",
+                packageName = UsageSessionAnalyzer.PACKAGE_INSTAGRAM,
+                surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
+                eventType = UsageEventType.SESSION_END,
+                timestampMillis = yesterdayMillis,
+                durationMillis = 30 * 60000L
+            )
+        )
+
+        val viewModel = FirstDayViewModel(
+            usageAggregator = usageAggregator,
+            usageStatsDataSource = fakeUsageStatsSource,
+            usageRepository = fakeUsageRepository
+        )
+        viewModel.loadFirstDayState(nowMillis)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse("Must NOT label returning user as first-day merely because today has 0 monitored time", state.isFirstDay)
+        assertTrue("Must detect historical usage from prior days", state.hasHistoricalUsage)
+        assertTrue(state.isUsageAccessGranted)
+        assertTrue(state.isUsageDataAvailable)
+        assertEquals(0, state.todayMonitoredMinutes)
+        assertNull("Reels count must remain null when tracking unintercepted", state.todayReelsWatched)
+        assertEquals("No usage recorded today.", state.headline)
+        assertEquals("You haven’t spent monitored time in Instagram or YouTube yet today.", state.body)
+        assertEquals("Quiet", state.mindStateLabel)
+        assertEquals("Your ongoing rhythm continues on-device.", state.referenceNote)
+    }
+
+    @Test
     fun firstDay_whenUsagePermissionMissing_marksUsageUnavailableAndNullReelCount() = runTest(testDispatcher) {
         fakeUsageStatsSource.hasPermission = false
 
         val viewModel = FirstDayViewModel(
             usageAggregator = usageAggregator,
-            usageStatsDataSource = fakeUsageStatsSource
+            usageStatsDataSource = fakeUsageStatsSource,
+            usageRepository = fakeUsageRepository
         )
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertTrue(state.isFirstDay)
+        assertFalse("Cannot claim first day when usage permission is missing", state.isFirstDay)
         assertFalse(state.isUsageAccessGranted)
         assertFalse(state.isUsageDataAvailable)
         assertNull("Monitored minutes must be null when permission is missing", state.todayMonitoredMinutes)
         assertNull("Reel count must not be assumed zero when data is unavailable", state.todayReelsWatched)
+        assertEquals("Permission needed to monitor.", state.headline)
+        assertEquals("STILLFEED needs Usage Access permission to measure attention across monitored apps.", state.body)
     }
 
     @Test
@@ -351,67 +418,61 @@ class EdgeStateScreensTest {
 
         val viewModel = FirstDayViewModel(
             usageAggregator = null,
-            usageStatsDataSource = fakeUsageStatsSource
+            usageStatsDataSource = fakeUsageStatsSource,
+            usageRepository = null
         )
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertTrue(state.isFirstDay)
+        assertFalse("Cannot claim first day when usage data layer is unavailable", state.isFirstDay)
         assertTrue(state.isUsageAccessGranted)
         assertFalse(state.isUsageDataAvailable)
         assertNull("Monitored minutes must be null when aggregation unavailable", state.todayMonitoredMinutes)
         assertNull("Reel count must remain null", state.todayReelsWatched)
+        assertEquals("Usage data unavailable.", state.headline)
+        assertEquals("Unable to refresh usage metrics from device storage right now.", state.body)
     }
 
     @Test
-    fun firstDay_whenUsageIsVerifiedZero_showsZeroMinutesAndNullReelCount() = runTest(testDispatcher) {
-        fakeUsageStatsSource.hasPermission = true
+    fun firstDay_whenReturningUserWithUsageAccumulatedToday_displaysRhythm() = runTest(testDispatcher) {
+        val nowMillis = 1700000000000L
 
-        val viewModel = FirstDayViewModel(
-            usageAggregator = usageAggregator,
-            usageStatsDataSource = fakeUsageStatsSource
-        )
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertTrue(state.isFirstDay)
-        assertTrue(state.isUsageAccessGranted)
-        assertTrue(state.isUsageDataAvailable)
-        assertEquals(0, state.todayMonitoredMinutes)
-        assertNull("Reels count must NOT be converted from zero monitored minutes", state.todayReelsWatched)
-    }
-
-    @Test
-    fun firstDay_whenUsageAccumulates_transitionsGracefullyWithMonitoredMinutesAndNullReelCount() = runTest(testDispatcher) {
         fakeUsageRepository.recordEvent(
             UsageEvent(
                 id = "ev_today",
                 packageName = UsageSessionAnalyzer.PACKAGE_INSTAGRAM,
                 surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
                 eventType = UsageEventType.SESSION_END,
-                timestampMillis = System.currentTimeMillis(),
+                timestampMillis = nowMillis,
                 durationMillis = 25 * 60000L
             )
         )
 
         val viewModel = FirstDayViewModel(
             usageAggregator = usageAggregator,
-            usageStatsDataSource = fakeUsageStatsSource
+            usageStatsDataSource = fakeUsageStatsSource,
+            usageRepository = fakeUsageRepository
         )
+        viewModel.loadFirstDayState(nowMillis)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertFalse(state.isFirstDay)
+        assertTrue(state.isUsageDataAvailable)
         assertEquals(25, state.todayMonitoredMinutes)
         assertFalse(state.isReelsCountAvailable)
         assertNull(state.todayReelsWatched)
+        assertEquals("Today's rhythm.", state.headline)
+        assertEquals("Your attention rhythm for today across monitored apps.", state.body)
+        assertEquals("Calm", state.mindStateLabel)
     }
 
     @Test
     fun firstDay_neverConvertsMonitoredMinutesIntoReelsWatched() = runTest(testDispatcher) {
         val viewModel = FirstDayViewModel(
             usageAggregator = usageAggregator,
-            usageStatsDataSource = fakeUsageStatsSource
+            usageStatsDataSource = fakeUsageStatsSource,
+            usageRepository = fakeUsageRepository
         )
         advanceUntilIdle()
 

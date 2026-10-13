@@ -96,9 +96,11 @@ fun FirstDayContent(
                 .padding(top = StillfeedTheme.spacing.lg, bottom = StillfeedTheme.spacing.xl)
         ) {
             // 1. BRAND HEADER & SECTION
+            val sectionLabel = if (uiState.isFirstDay) "FIRST DAY" else "TODAY"
+            val stepCounter = if (uiState.isFirstDay) "NEW" else "EDGE"
             StillfeedScreenHeader(
-                sectionLabel = "FIRST DAY",
-                stepCounter = "NEW"
+                sectionLabel = sectionLabel,
+                stepCounter = stepCounter
             )
 
             Spacer(modifier = Modifier.height(StillfeedTheme.spacing.xl))
