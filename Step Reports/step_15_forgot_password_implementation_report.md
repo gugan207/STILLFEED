@@ -314,8 +314,8 @@ To ensure complete transparency, testing is split across **Automated Unit Tests*
 | **Simulated Deep Link** | Rejection of unrelated types (`signup`, `magiclink`) | ViewModel & Repository Test | **PASS** | `handleDeepLink_withUnrelatedFlowType_showsErrorInForgotPasswordMode` |
 | **Actual Email Delivery** | Permitted test address (`guganthangaraj7@gmail.com`) | Live GoTrue API + Resend | **PASS** | `POST /auth/v1/recover` returned HTTP 200 `{}`; email delivered to inbox. |
 | **Actual Email Delivery** | Arbitrary recipient email (e.g. unpermitted Gmail) | Live GoTrue API + Resend | **RESTRICTION EXPECTED** | Resend sandbox returns SMTP 550; app gracefully surfaces helpful message. |
-| **Real Password Reset** | Supabase GoTrue password update (`PUT /auth/v1/user`) | Remote Auth Test & Supabase Client | **PASS** | GoTrue updates password with valid recovery token; credentials work on subsequent login. |
-| **Physical Mobile Handset** | Full end-to-end flow on Motorola Edge 60 Fusion (`ZA222WTN4H`) | Physical USB ADB Device Run | **PENDING** | **Device currently unplugged from laptop ADB (`adb devices` showed 0 attached devices). Awaiting physical connection by user.** |
+| **Physical Mobile Handset** | APK Deployment & Launch on Motorola Edge 60 Fusion (`ZA222WTN4H`) | Physical USB ADB Streamed Install | **PASS** | Deployed via `adb install -r`; running actively (`PID 16464`) without wiping user data. |
+| **Physical Mobile Handset** | Full user end-to-end recovery test | Manual handset test | **READY FOR USER TEST** | User can now enter email, receive recovery link, tap deep link to reset password, and log in. |
 
 ---
 
