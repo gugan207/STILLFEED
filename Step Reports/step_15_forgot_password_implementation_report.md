@@ -175,57 +175,242 @@ Supabase GoTrue uses an email template configured under **Authentication -> Emai
 3. **Recovery Link:** Uses `{{ .ConfirmationURL }}` which Supabase replaces with the signed recovery redirect link pointing to `stillfeed://reset-password`.
 4. **Security Notice:** Informs the user that if they did not request the reset, they can safely ignore the email.
 
-### Recommended Supabase Template:
+### Recommended Supabase Template (Cohesive with Signup OTP Design):
 **Subject:** `Reset your STILLFEED password`
 
 ```html
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Reset Your STILLFEED Password</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>Reset your STILLFEED password</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #0B0F19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #FFFFFF;">
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0B0F19; padding: 40px 20px;">
+
+<body style="margin:0;padding:0;background-color:#F3F2EE;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;">
+
+  <!-- EMAIL PREVIEW TEXT -->
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">
+    Reset your STILLFEED account password. Click the secure button below to choose a new password.
+  </div>
+
+  <!-- MAIN BACKGROUND -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F3F2EE">
     <tr>
-      <td align="center">
-        <table width="100%" max-width="500" border="0" cellspacing="0" cellpadding="0" style="max-width: 500px; background-color: #111827; border-radius: 16px; border: 1px solid #1F2937; padding: 36px 32px; text-align: left;">
+      <td align="center" style="padding:40px 16px;">
+
+        <!-- EMAIL CONTAINER -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background-color:#FFFFFF;border:1px solid #E5E7E1;border-radius:14px;">
+
+          <!-- BRAND HEADER -->
           <tr>
-            <td style="padding-bottom: 24px;">
-              <span style="font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #FFFFFF;">STILLFEED</span>
+            <td style="padding:34px 32px 28px;">
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="left" valign="middle">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td width="34" height="34" align="center" valign="middle" bgcolor="#222924" style="background-color:#222924;border-radius:8px;color:#FFFFFF;font-size:25px;line-height:34px;">
+                          &#9678;
+                        </td>
+                        <td style="padding-left:12px;color:#222924;font-size:17px;font-weight:700;letter-spacing:1.6px;">
+                          STILLFEED
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+
+                  <td align="right" valign="middle" style="color:#89918A;font-size:10px;font-weight:700;letter-spacing:1px;">
+                    ACCOUNT SECURITY
+                  </td>
+                </tr>
+              </table>
+
             </td>
           </tr>
+
+          <!-- DIVIDER -->
           <tr>
-            <td style="padding-bottom: 12px;">
-              <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #FFFFFF;">Reset your password</h1>
+            <td style="padding:0 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td height="1" bgcolor="#E8EBE6" style="font-size:0;line-height:1px;">&nbsp;</td>
+                </tr>
+              </table>
             </td>
           </tr>
+
+          <!-- INTRO -->
           <tr>
-            <td style="padding-bottom: 28px; line-height: 1.5; font-size: 14px; color: #9CA3AF;">
-              We received a request to reset the password for your STILLFEED account. Tap the button below to set a new password.
+            <td style="padding:36px 32px 0;">
+
+              <p style="margin:0 0 16px;color:#69806E;font-size:11px;font-weight:700;letter-spacing:1.8px;">
+                PASSWORD RECOVERY
+              </p>
+
+              <h1 style="margin:0 0 18px;color:#222924;font-size:30px;font-weight:700;line-height:1.25;letter-spacing:-0.5px;">
+                Reset your password.
+              </h1>
+
+              <p style="margin:0 0 12px;color:#626A64;font-size:15px;line-height:25px;">
+                Hello,
+              </p>
+
+              <p style="margin:0;color:#626A64;font-size:15px;line-height:25px;">
+                We received a request to reset the password for your STILLFEED account.
+                Tap the button below to open STILLFEED on your device and set a new password.
+              </p>
+
             </td>
           </tr>
+
+          <!-- ACTION BUTTON SECTION -->
           <tr>
-            <td style="padding-bottom: 32px;" align="center">
-              <a href="{{ .ConfirmationURL }}" style="display: block; width: 100%; box-sizing: border-box; background-color: #6366F1; color: #FFFFFF; font-size: 15px; font-weight: 600; text-align: center; text-decoration: none; padding: 14px 24px; border-radius: 10px;">
-                Reset Password
-              </a>
+            <td style="padding:30px 32px 20px;">
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#222924" style="background-color:#222924;border-radius:12px;">
+
+                <tr>
+                  <td align="center" style="padding:28px 16px 12px;">
+
+                    <p style="margin:0;color:#AFBDB0;font-size:11px;font-weight:700;letter-spacing:1.8px;line-height:18px;">
+                      SECURE RECOVERY LINK
+                    </p>
+
+                  </td>
+                </tr>
+
+                <tr>
+                  <td align="center" style="padding:10px 16px 16px;">
+
+                    <!-- DYNAMIC SUPABASE CONFIRMATION URL BUTTON -->
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" bgcolor="#FFFFFF" style="border-radius:8px;background-color:#FFFFFF;">
+                          <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;padding:14px 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;color:#222924;text-decoration:none;letter-spacing:0.3px;border-radius:8px;">
+                            Reset Password &rarr;
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+
+                <tr>
+                  <td align="center" style="padding:0 16px 26px;">
+
+                    <p style="margin:0;color:#AFBDB0;font-size:12px;line-height:20px;">
+                      Tap the button above to launch STILLFEED on your phone.
+                      <br>
+                      This secure link is valid for 1 hour.
+                    </p>
+
+                  </td>
+                </tr>
+
+              </table>
+
             </td>
           </tr>
+
+          <!-- INSTRUCTIONS -->
           <tr>
-            <td style="padding-bottom: 20px; border-top: 1px solid #1F2937; padding-top: 24px; font-size: 12px; color: #6B7280; line-height: 1.5;">
-              This link is valid for 1 hour. If you didn't request a password reset, you can safely ignore this email — your password will remain unchanged.
+            <td style="padding:0 32px 28px;">
+
+              <p style="margin:0;color:#626A64;font-size:13px;line-height:22px;">
+                If the button above does not open directly, copy and open the link on your mobile phone with STILLFEED installed.
+              </p>
+
             </td>
           </tr>
+
+          <!-- SECURITY NOTICE -->
           <tr>
-            <td style="font-size: 11px; color: #4B5563;">
-              &copy; 2026 STILLFEED. Your attention is still yours.
+            <td style="padding:0 32px 32px;">
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F6F2" style="background-color:#F4F6F2;border-left:3px solid #718675;border-radius:4px;">
+
+                <tr>
+                  <td style="padding:18px 18px;">
+
+                    <p style="margin:0 0 7px;color:#29372D;font-size:13px;font-weight:700;line-height:20px;">
+                      A note on your security
+                    </p>
+
+                    <p style="margin:0;color:#626A64;font-size:12px;line-height:21px;">
+                      Never forward or share this recovery email with anyone.
+                      STILLFEED will never ask you for your account credentials or passwords.
+                    </p>
+
+                  </td>
+                </tr>
+
+              </table>
+
             </td>
           </tr>
+
+          <!-- FOOTER DIVIDER -->
+          <tr>
+            <td style="padding:0 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td height="1" bgcolor="#E8EBE6" style="font-size:0;line-height:1px;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- EMAIL FOOTER -->
+          <tr>
+            <td style="padding:25px 32px 32px;">
+
+              <p style="margin:0 0 18px;color:#7D877E;font-size:12px;line-height:21px;">
+                Didn't request a password reset?
+                You can safely ignore this message — your password will remain unchanged.
+              </p>
+
+              <p style="margin:0;color:#29372D;font-size:13px;font-weight:700;line-height:20px;">
+                The STILLFEED Team
+              </p>
+
+            </td>
+          </tr>
+
         </table>
+
+        <!-- OUTSIDE FOOTER -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+
+          <tr>
+            <td align="center" style="padding:28px 16px 8px;">
+
+              <p style="margin:0 0 9px;color:#777F78;font-size:12px;font-weight:700;letter-spacing:1.6px;">
+                STILLFEED
+              </p>
+
+              <p style="margin:0 0 15px;color:#777F78;font-size:12px;line-height:20px;">
+                Less noise. More intention.
+              </p>
+
+              <p style="margin:0;color:#929A93;font-size:11px;line-height:19px;">
+                This is an automated account security notification.
+                <br>
+                Please do not reply to this email.
+              </p>
+
+            </td>
+          </tr>
+
+        </table>
+
       </td>
     </tr>
   </table>
+
 </body>
 </html>
 ```
