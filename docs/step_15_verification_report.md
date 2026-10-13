@@ -112,11 +112,13 @@ Credential UI Component:      com.google.android.gms/.auth.api.credentials.assis
 
 | Quality Gate | Requirement | Execution Result | Status |
 | :--- | :--- | :--- | :--- |
-| `.\gradlew.bat testDebugUnitTest` | Full unit test suite | **275 passed, 0 failed, 0 skipped** | **PASS** |
-| `.\gradlew.bat assembleDebug` | Debug APK compilation | **BUILD SUCCESSFUL** | **PASS** |
-| `.\gradlew.bat lintDebug` | Static code analysis | **BUILD SUCCESSFUL (0 errors)** | **PASS** |
+| `.\gradlew.bat testDebugUnitTest` | Full unit test suite | **280 passed, 0 failed, 0 skipped** | **PASS** |
+| `.\gradlew.bat assembleDebug` | Debug APK compilation | **BUILD SUCCESSFUL in 41s** | **PASS** |
+| `.\gradlew.bat lintDebug` | Static code analysis | **BUILD SUCCESSFUL in 1m 47s (0 errors)** | **PASS** |
 | Physical Device Install | Non-destructive reinstall (`-r`) | **Streamed Install Success (Data Preserved)** | **PASS** |
 | Email OTP Verification | Real 6-digit numeric OTP | **PASS** (Confirmed working) | **PASS** |
+| Post-Login Settings Nav | Stay on Settings without snapping | **PASS** (Race condition resolved; launchSingleTop added) | **PASS** |
+| Session & Profile Persistence | Launch restoration & Room safety | **PASS** (App CoroutineScope hooked; getUser guarded) | **PASS** |
 | Google Sign-In Flow | Real physical device sign-in | **AWAITING USER MANUAL TEST** (APK installed on phone) | **AWAITING USER TEST** |
 
 ---
@@ -124,7 +126,9 @@ Credential UI Component:      com.google.android.gms/.auth.api.credentials.assis
 ## 7. Summary & Next Step Boundary
 
 - **Email OTP:** **PASS** (100% operational).
-- **Google Sign-In:** **AWAITING USER MANUAL TEST** (Updated Web Client ID deployed to phone, awaiting physical sign-in verification by user. Strictly NOT claimed as PASS until real login succeeds).
+- **Settings Navigation:** **PASS** (Race condition resolved between `AuthGate` transition splash and `Screen.Home.route`).
+- **Session Restoration & Profile Safety:** **PASS** (Cold start session restore enabled via application scope; profile preservation active).
+- **Google Sign-In:** **AWAITING USER MANUAL TEST** (Updated Web Client ID deployed to Motorola Edge 60 Fusion `ZA222WTN4H`, awaiting physical sign-in verification by user. Strictly NOT claimed as PASS until real login succeeds).
 - **Approved UI & Resend Config:** 100% preserved. Zero regressions. Zero OAuth secrets stored or exposed.
 
 **STOP before Step 16.**

@@ -98,27 +98,13 @@ fun StillfeedNavHost(
                 if (authState is AuthState.SignedIn) {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Auth.route) { inclusive = true }
+                        launchSingleTop = true
                     }
                 }
             }
 
             AuthGate(viewModel = authVm) { _ ->
-                if (resolvedAwarenessVm != null) {
-                    HomeScreen(
-                        viewModel = resolvedAwarenessVm,
-                        onNavigateToAwarenessSelection = {
-                            navController.navigate(Screen.AwarenessSelection.route)
-                        },
-                        onNavigateToInsights = {
-                            navController.navigate(Screen.Insights.route)
-                        },
-                        onNavigateToSettings = {
-                            navController.navigate(Screen.Settings.route)
-                        }
-                    )
-                } else {
-                    BootstrapScreen()
-                }
+                com.stillfeed.app.auth.ui.AuthLoadingSplash()
             }
         }
 
@@ -139,10 +125,14 @@ fun StillfeedNavHost(
                         navController.navigate(Screen.AwarenessSelection.route)
                     },
                     onNavigateToInsights = {
-                        navController.navigate(Screen.Insights.route)
+                        navController.navigate(Screen.Insights.route) {
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateToSettings = {
-                        navController.navigate(Screen.Settings.route)
+                        navController.navigate(Screen.Settings.route) {
+                            launchSingleTop = true
+                        }
                     }
                 )
             } ?: BootstrapScreen()
@@ -184,10 +174,13 @@ fun StillfeedNavHost(
                     onNavigateToHome = {
                         navController.navigate(Screen.Home.route) {
                             popUpTo(Screen.Home.route) { inclusive = true }
+                            launchSingleTop = true
                         }
                     },
                     onNavigateToSettings = {
-                        navController.navigate(Screen.Settings.route)
+                        navController.navigate(Screen.Settings.route) {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }
@@ -209,10 +202,13 @@ fun StillfeedNavHost(
                     onNavigateToHome = {
                         navController.navigate(Screen.Home.route) {
                             popUpTo(Screen.Home.route) { inclusive = true }
+                            launchSingleTop = true
                         }
                     },
                     onNavigateToInsights = {
-                        navController.navigate(Screen.Insights.route)
+                        navController.navigate(Screen.Insights.route) {
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateToAwarenessSelection = {
                         navController.navigate(Screen.AwarenessSelection.route)

@@ -43,12 +43,18 @@ class ProductionAuthRepository(
     coroutineScope: CoroutineScope? = null
 ) : AuthRepository {
 
-    private val _authState = MutableStateFlow<AuthState>(AuthState.SignedOut)
+    private val _authState = MutableStateFlow<AuthState>(
+        if (coroutineScope != null) AuthState.Loading else AuthState.SignedOut
+    )
     override val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
     init {
         coroutineScope?.launch(ioDispatcher) {
-            refreshSession()
+            try {
+                refreshSession()
+            } catch (_: Throwable) {
+                _authState.value = AuthState.SignedOut
+            }
         }
     }
 
@@ -82,14 +88,15 @@ class ProductionAuthRepository(
         )
         sessionRepository.saveSession(session)
 
-        // Persist account profile in local Room cache
+        // Persist account profile in local Room cache without overwriting existing data
+        val existingUser = userRepository.getUser(response.userId)
         val localUser = User(
             id = response.userId,
             email = response.email ?: normalizedEmail,
-            displayName = response.displayName ?: normalizedEmail.substringBefore("@").replaceFirstChar { it.uppercase() },
-            createdAtMillis = System.currentTimeMillis(),
+            displayName = response.displayName ?: existingUser?.displayName ?: normalizedEmail.substringBefore("@").replaceFirstChar { it.uppercase() },
+            createdAtMillis = existingUser?.createdAtMillis ?: System.currentTimeMillis(),
             updatedAtMillis = System.currentTimeMillis(),
-            deviceBindingId = registeredBindingId
+            deviceBindingId = registeredBindingId ?: existingUser?.deviceBindingId
         )
         userRepository.saveUser(localUser)
 
@@ -153,13 +160,14 @@ class ProductionAuthRepository(
         )
         sessionRepository.saveSession(session)
 
+        val existingUser = userRepository.getUser(response.userId)
         val localUser = User(
             id = response.userId,
             email = response.email ?: normalizedEmail,
-            displayName = response.displayName ?: displayName ?: normalizedEmail.substringBefore("@").replaceFirstChar { it.uppercase() },
-            createdAtMillis = System.currentTimeMillis(),
+            displayName = response.displayName ?: displayName ?: existingUser?.displayName ?: normalizedEmail.substringBefore("@").replaceFirstChar { it.uppercase() },
+            createdAtMillis = existingUser?.createdAtMillis ?: System.currentTimeMillis(),
             updatedAtMillis = System.currentTimeMillis(),
-            deviceBindingId = deviceBindingId.ifBlank { null }
+            deviceBindingId = deviceBindingId.ifBlank { existingUser?.deviceBindingId }
         )
         userRepository.saveUser(localUser)
 
@@ -207,13 +215,14 @@ class ProductionAuthRepository(
         )
         sessionRepository.saveSession(session)
 
+        val existingUser = userRepository.getUser(response.userId)
         val localUser = User(
             id = response.userId,
             email = response.email ?: normalizedEmail,
-            displayName = response.displayName ?: normalizedEmail.substringBefore("@").replaceFirstChar { it.uppercase() },
-            createdAtMillis = System.currentTimeMillis(),
+            displayName = response.displayName ?: existingUser?.displayName ?: normalizedEmail.substringBefore("@").replaceFirstChar { it.uppercase() },
+            createdAtMillis = existingUser?.createdAtMillis ?: System.currentTimeMillis(),
             updatedAtMillis = System.currentTimeMillis(),
-            deviceBindingId = deviceBindingId.ifBlank { null }
+            deviceBindingId = deviceBindingId.ifBlank { existingUser?.deviceBindingId }
         )
         userRepository.saveUser(localUser)
 
@@ -268,13 +277,14 @@ class ProductionAuthRepository(
         )
         sessionRepository.saveSession(session)
 
+        val existingUser = userRepository.getUser(response.userId)
         val localUser = User(
             id = response.userId,
-            email = response.email ?: "",
-            displayName = response.displayName ?: "Google User",
-            createdAtMillis = System.currentTimeMillis(),
+            email = response.email ?: existingUser?.email ?: "",
+            displayName = response.displayName ?: existingUser?.displayName ?: "Google User",
+            createdAtMillis = existingUser?.createdAtMillis ?: System.currentTimeMillis(),
             updatedAtMillis = System.currentTimeMillis(),
-            deviceBindingId = deviceBindingId.ifBlank { null }
+            deviceBindingId = deviceBindingId.ifBlank { existingUser?.deviceBindingId }
         )
         userRepository.saveUser(localUser)
 

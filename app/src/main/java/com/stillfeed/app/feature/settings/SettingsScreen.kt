@@ -66,9 +66,10 @@ fun SettingsScreen(
     var showExportDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // Re-check system permissions on initial composition / resume
+    // Re-check system permissions and load latest settings on initial composition / resume
     LaunchedEffect(Unit) {
         viewModel.refreshPermissions()
+        viewModel.loadSettings()
     }
 
     // Handle sign out or account deletion navigation

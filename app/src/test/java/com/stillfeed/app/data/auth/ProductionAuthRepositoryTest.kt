@@ -11,6 +11,7 @@ import com.stillfeed.app.data.remote.InMemoryRemoteUserRepository
 import com.stillfeed.app.data.repository.LocalDeviceBindingRepository
 import com.stillfeed.app.data.repository.LocalUserRepository
 import com.stillfeed.app.domain.model.AuthSession
+import com.stillfeed.app.domain.model.User
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -376,6 +377,93 @@ class ProductionAuthRepositoryTest {
 
         assertTrue(repository.authState.value is AuthState.SignedIn)
         assertNotNull(sessionRepository.getSession())
+    }
+
+    @Test
+    fun init_withCoroutineScope_restoresSessionAutomaticallyOnLaunch() = runTest(testDispatcher) {
+        val existingSession = AuthSession(
+            userId = "user_persisted_999",
+            accessToken = "token_persisted_abc",
+            refreshToken = "refresh_persisted_xyz",
+            expiresAtMillis = System.currentTimeMillis() + 3600_000L,
+            userEmail = "persisted@example.com",
+            deviceBindingId = "device_test_token_001"
+        )
+        sessionRepository.saveSession(existingSession)
+        localUserRepository.saveUser(
+            User(
+                id = "user_persisted_999",
+                email = "persisted@example.com",
+                displayName = "Persisted User",
+                createdAtMillis = 1000L,
+                updatedAtMillis = 1000L,
+                deviceBindingId = "device_test_token_001"
+            )
+        )
+
+        val launchingRepository = ProductionAuthRepository(
+            remoteAuthDataSource = remoteAuthDataSource,
+            sessionRepository = sessionRepository,
+            remoteUserRepository = remoteUserRepository,
+            deviceBindingRepository = deviceBindingRepository,
+            userRepository = localUserRepository,
+            ioDispatcher = testDispatcher,
+            coroutineScope = this
+        )
+
+        val state = launchingRepository.authState.first { it !is AuthState.Loading }
+        assertTrue("Auth state was $state instead of SignedIn", state is AuthState.SignedIn)
+        val signedIn = state as AuthState.SignedIn
+        assertEquals("user_persisted_999", signedIn.user.id)
+        assertEquals("persisted@example.com", signedIn.user.email)
+        assertEquals("Persisted User", signedIn.user.displayName)
+    }
+
+    @Test
+    fun signIn_preservesExistingUserCreatedAtAndDisplayNameInRoom() = runTest(testDispatcher) {
+        val initialCreatedAt = 55555L
+        localUserRepository.saveUser(
+            User(
+                id = "existing_u1",
+                email = "custom@example.com",
+                displayName = "Custom Display Name",
+                createdAtMillis = initialCreatedAt,
+                updatedAtMillis = initialCreatedAt,
+                deviceBindingId = "prev_binding"
+            )
+        )
+        remoteAuthDataSource.registerExistingAccount("custom@example.com", "Password123!", "existing_u1")
+
+        val result = repository.signIn("custom@example.com", "Password123!")
+        assertTrue(result.isSuccess)
+
+        val storedUser = localUserRepository.getUser("existing_u1")
+        assertNotNull(storedUser)
+        assertEquals("Custom Display Name", storedUser?.displayName)
+        assertEquals(initialCreatedAt, storedUser?.createdAtMillis)
+    }
+
+    @Test
+    fun signInWithGoogle_preservesExistingUserCreatedAtAndDisplayNameInRoom() = runTest(testDispatcher) {
+        val initialCreatedAt = 77777L
+        localUserRepository.saveUser(
+            User(
+                id = "google_user_1",
+                email = "google_user@example.com",
+                displayName = "My Custom Profile Name",
+                createdAtMillis = initialCreatedAt,
+                updatedAtMillis = initialCreatedAt,
+                deviceBindingId = "prev_binding"
+            )
+        )
+
+        val result = repository.signInWithGoogle("valid_google_id_token_xyz")
+        assertTrue(result.isSuccess)
+
+        val storedUser = localUserRepository.getUser("google_user_1")
+        assertNotNull(storedUser)
+        assertEquals("My Custom Profile Name", storedUser?.displayName)
+        assertEquals(initialCreatedAt, storedUser?.createdAtMillis)
     }
 }
 

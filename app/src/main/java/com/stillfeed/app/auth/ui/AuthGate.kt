@@ -95,7 +95,7 @@ fun AuthGate(
 }
 
 @Composable
-private fun AuthLoadingSplash(
+internal fun AuthLoadingSplash(
     modifier: Modifier = Modifier
 ) {
     Box(

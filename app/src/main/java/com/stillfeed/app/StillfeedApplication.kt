@@ -147,12 +147,14 @@ class StillfeedApplication : Application() {
 
         // 3. Initialize Production Authentication Repository backed by Supabase
         val remoteUserRepo = com.stillfeed.app.data.remote.supabase.SupabaseRemoteUserRepository(supabaseClient)
+        val appScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
         authRepository = com.stillfeed.app.data.auth.ProductionAuthRepository(
             remoteAuthDataSource = remoteAuthDataSource,
             sessionRepository = sessionRepository,
             remoteUserRepository = remoteUserRepo,
             deviceBindingRepository = deviceBindingRepository,
-            userRepository = userRepository
+            userRepository = userRepository,
+            coroutineScope = appScope
         )
 
         // 4. Background Usage Analysis WorkManager Scheduling

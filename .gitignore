@@ -24,3 +24,4 @@ captures/
 *_dump.xml
 dump_*.xml
 *.dump
+*.apk

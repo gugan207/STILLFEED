@@ -53,4 +53,11 @@ class HomeNavigationTest {
         assertEquals("Insights", StillfeedNavDestination.Insights.label)
         assertEquals("Settings", StillfeedNavDestination.Settings.label)
     }
+
+    @Test
+    fun settingsRoute_isDistinctFromHomeAndAuth() {
+        assertNotEquals(Screen.Home.route, Screen.Settings.route)
+        assertNotEquals(Screen.Auth.route, Screen.Settings.route)
+        assertEquals("settings", Screen.Settings.route)
+    }
 }
