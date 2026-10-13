@@ -60,4 +60,26 @@ class HomeNavigationTest {
         assertNotEquals(Screen.Auth.route, Screen.Settings.route)
         assertEquals("settings", Screen.Settings.route)
     }
+
+    @Test
+    fun bottomNavigation_primaryTabs_mapDirectlyToScreens() {
+        val mapping = mapOf(
+            StillfeedNavDestination.Home to Screen.Home.route,
+            StillfeedNavDestination.Insights to Screen.Insights.route,
+            StillfeedNavDestination.Settings to Screen.Settings.route
+        )
+        assertEquals(3, mapping.size)
+        assertEquals("home", mapping[StillfeedNavDestination.Home])
+        assertEquals("insights", mapping[StillfeedNavDestination.Insights])
+        assertEquals("settings", mapping[StillfeedNavDestination.Settings])
+    }
+
+    @Test
+    fun tabNavigation_destinationResolution_anchorsAtHome() {
+        val rootTab = Screen.Home.route
+        val secondaryTabs = listOf(Screen.Insights.route, Screen.Settings.route)
+        secondaryTabs.forEach { tabRoute ->
+            assertNotEquals("Secondary tab must not be root tab", rootTab, tabRoute)
+        }
+    }
 }

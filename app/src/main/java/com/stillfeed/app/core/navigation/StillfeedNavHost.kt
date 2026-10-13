@@ -1,7 +1,11 @@
 package com.stillfeed.app.core.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -15,6 +19,7 @@ import com.stillfeed.app.StillfeedApplication
 import com.stillfeed.app.auth.model.AuthState
 import com.stillfeed.app.auth.repository.AuthRepository
 import com.stillfeed.app.auth.ui.AuthGate
+import com.stillfeed.app.auth.ui.AuthLoadingSplash
 import com.stillfeed.app.auth.ui.AuthViewModel
 import com.stillfeed.app.feature.awareness.AwarenessSelectionScreen
 import com.stillfeed.app.feature.awareness.AwarenessViewModel
@@ -38,7 +43,7 @@ fun StillfeedNavHost(
     awarenessViewModel: AwarenessViewModel? = null,
     insightsViewModel: InsightsViewModel? = null,
     settingsViewModel: SettingsViewModel? = null,
-    startDestination: String = Screen.Auth.route
+    startDestination: String = Screen.Home.route
 ) {
     val app = LocalContext.current.applicationContext as? StillfeedApplication
     val repository = authRepository ?: app?.authRepository
@@ -87,143 +92,127 @@ fun StillfeedNavHost(
         )
     }
 
-    NavHost(
-        navController = navController,
-        startDestination = startDestination,
-        modifier = modifier
-    ) {
-        composable(route = Screen.Auth.route) {
-            val authState by authVm.currentAuthState.collectAsState()
-            LaunchedEffect(authState) {
-                if (authState is AuthState.SignedIn) {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Auth.route) { inclusive = true }
+    val authState by authVm.currentAuthState.collectAsState()
+
+    when (authState) {
+        is AuthState.Loading -> {
+            // Cold launch session restoration splash screen
+            AuthLoadingSplash(modifier = modifier)
+        }
+        is AuthState.SignedIn -> {
+            // Tab navigation helper: enforces single-top and anchors backstack to Home
+            val navigateToTab: (String) -> Unit = { targetRoute ->
+                val currentRoute = navController.currentBackStackEntry?.destination?.route
+                if (currentRoute != targetRoute) {
+                    navController.navigate(targetRoute) {
+                        popUpTo(Screen.Home.route) {
+                            saveState = true
+                        }
                         launchSingleTop = true
+                        restoreState = true
                     }
                 }
             }
 
-            AuthGate(viewModel = authVm) { _ ->
-                com.stillfeed.app.auth.ui.AuthLoadingSplash()
+            val effectiveStartDestination = if (startDestination == Screen.Auth.route) {
+                Screen.Home.route
+            } else {
+                startDestination
             }
-        }
 
-        composable(route = Screen.Home.route) {
-            val authState by authVm.currentAuthState.collectAsState()
-            LaunchedEffect(authState) {
-                if (authState !is AuthState.SignedIn && authState !is AuthState.Loading) {
-                    navController.navigate(Screen.Auth.route) {
-                        popUpTo(0) { inclusive = true }
+            NavHost(
+                navController = navController,
+                startDestination = effectiveStartDestination,
+                modifier = modifier,
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { ExitTransition.None }
+            ) {
+                composable(route = Screen.Home.route) {
+                    resolvedAwarenessVm?.let { vm ->
+                        HomeScreen(
+                            viewModel = vm,
+                            onNavigateToAwarenessSelection = {
+                                navController.navigate(Screen.AwarenessSelection.route)
+                            },
+                            onNavigateToInsights = {
+                                navigateToTab(Screen.Insights.route)
+                            },
+                            onNavigateToSettings = {
+                                navigateToTab(Screen.Settings.route)
+                            }
+                        )
+                    } ?: BootstrapScreen()
+                }
+
+                composable(
+                    route = Screen.AwarenessSelection.route,
+                    enterTransition = { fadeIn(animationSpec = tween(150)) },
+                    exitTransition = { fadeOut(animationSpec = tween(150)) },
+                    popEnterTransition = { fadeIn(animationSpec = tween(150)) },
+                    popExitTransition = { fadeOut(animationSpec = tween(150)) }
+                ) {
+                    resolvedAwarenessVm?.let { vm ->
+                        AwarenessSelectionScreen(
+                            viewModel = vm,
+                            onNavigateBack = {
+                                navController.popBackStack()
+                            }
+                        )
+                    }
+                }
+
+                composable(route = Screen.Insights.route) {
+                    resolvedInsightsVm?.let { vm ->
+                        InsightsScreen(
+                            viewModel = vm,
+                            onNavigateToHome = {
+                                navigateToTab(Screen.Home.route)
+                            },
+                            onNavigateToSettings = {
+                                navigateToTab(Screen.Settings.route)
+                            }
+                        )
+                    }
+                }
+
+                composable(route = Screen.Settings.route) {
+                    resolvedSettingsVm?.let { vm ->
+                        SettingsScreen(
+                            viewModel = vm,
+                            onNavigateToHome = {
+                                navigateToTab(Screen.Home.route)
+                            },
+                            onNavigateToInsights = {
+                                navigateToTab(Screen.Insights.route)
+                            },
+                            onNavigateToAwarenessSelection = {
+                                navController.navigate(Screen.AwarenessSelection.route)
+                            },
+                            onSignOutOrDelete = {
+                                // Handled declaratively via authState transition to SignedOut
+                            }
+                        )
+                    }
+                }
+
+                composable(route = Screen.Bootstrap.route) {
+                    BootstrapScreen()
+                }
+
+                composable(route = Screen.Auth.route) {
+                    AuthGate(viewModel = authVm) {
+                        // In case Screen.Auth is explicitly queried in graph
                     }
                 }
             }
-
-            resolvedAwarenessVm?.let { vm ->
-                HomeScreen(
-                    viewModel = vm,
-                    onNavigateToAwarenessSelection = {
-                        navController.navigate(Screen.AwarenessSelection.route)
-                    },
-                    onNavigateToInsights = {
-                        navController.navigate(Screen.Insights.route) {
-                            launchSingleTop = true
-                        }
-                    },
-                    onNavigateToSettings = {
-                        navController.navigate(Screen.Settings.route) {
-                            launchSingleTop = true
-                        }
-                    }
-                )
-            } ?: BootstrapScreen()
         }
-
-        composable(route = Screen.AwarenessSelection.route) {
-            val authState by authVm.currentAuthState.collectAsState()
-            LaunchedEffect(authState) {
-                if (authState !is AuthState.SignedIn && authState !is AuthState.Loading) {
-                    navController.navigate(Screen.Auth.route) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
+        else -> {
+            // Unauthenticated state: SignedOut, SessionExpired, Error, NeedsEmailVerification
+            AuthGate(viewModel = authVm) {
+                // When sign in succeeds, authState becomes SignedIn and switches to the branch above
             }
-
-            resolvedAwarenessVm?.let { vm ->
-                AwarenessSelectionScreen(
-                    viewModel = vm,
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
-                )
-            }
-        }
-
-        composable(route = Screen.Insights.route) {
-            val authState by authVm.currentAuthState.collectAsState()
-            LaunchedEffect(authState) {
-                if (authState !is AuthState.SignedIn && authState !is AuthState.Loading) {
-                    navController.navigate(Screen.Auth.route) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
-            }
-
-            resolvedInsightsVm?.let { vm ->
-                InsightsScreen(
-                    viewModel = vm,
-                    onNavigateToHome = {
-                        navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Home.route) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
-                    onNavigateToSettings = {
-                        navController.navigate(Screen.Settings.route) {
-                            launchSingleTop = true
-                        }
-                    }
-                )
-            }
-        }
-
-        composable(route = Screen.Settings.route) {
-            val authState by authVm.currentAuthState.collectAsState()
-            LaunchedEffect(authState) {
-                if (authState !is AuthState.SignedIn && authState !is AuthState.Loading) {
-                    navController.navigate(Screen.Auth.route) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
-            }
-
-            resolvedSettingsVm?.let { vm ->
-                SettingsScreen(
-                    viewModel = vm,
-                    onNavigateToHome = {
-                        navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Home.route) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
-                    onNavigateToInsights = {
-                        navController.navigate(Screen.Insights.route) {
-                            launchSingleTop = true
-                        }
-                    },
-                    onNavigateToAwarenessSelection = {
-                        navController.navigate(Screen.AwarenessSelection.route)
-                    },
-                    onSignOutOrDelete = {
-                        navController.navigate(Screen.Auth.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
-                )
-            }
-        }
-
-        composable(route = Screen.Bootstrap.route) {
-            BootstrapScreen()
         }
     }
 }

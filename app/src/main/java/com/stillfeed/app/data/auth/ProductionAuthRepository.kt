@@ -314,7 +314,9 @@ class ProductionAuthRepository(
     }
 
     override suspend fun refreshSession(): Result<AuthUser?> = withContext(ioDispatcher) {
-        _authState.value = AuthState.Loading
+        if (_authState.value !is AuthState.SignedIn) {
+            _authState.value = AuthState.Loading
+        }
         val session = sessionRepository.getSession()
 
         if (session == null) {
