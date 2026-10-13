@@ -3,43 +3,36 @@ package com.stillfeed.app.protection.blocking
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import com.stillfeed.app.MainActivity
-import com.stillfeed.app.R
-import com.stillfeed.app.core.ui.components.StillfeedCard
-import com.stillfeed.app.core.ui.components.StillfeedPrimaryButton
-import com.stillfeed.app.core.ui.components.StillfeedSecondaryButton
-import com.stillfeed.app.core.ui.components.StillfeedStatus
-import com.stillfeed.app.core.ui.components.StillfeedStatusBadge
+import androidx.compose.animation.Crossfade
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.stillfeed.app.StillfeedApplication
 import com.stillfeed.app.core.ui.theme.StillfeedTheme
+import com.stillfeed.app.protection.intervention.ui.InterventionStep
+import com.stillfeed.app.protection.intervention.ui.InterventionViewModel
+import com.stillfeed.app.protection.intervention.ui.Screen08BlockedReel
+import com.stillfeed.app.protection.intervention.ui.Screen09ResetActivity
+import com.stillfeed.app.protection.intervention.ui.Screen10AwarenessCards
+import com.stillfeed.app.protection.intervention.ui.Screen11UnlockSelection
 
 /**
- * Calm, respectful intervention activity displayed when a short-form algorithmic video feed
- * (Reels or Shorts) is intercepted (STEP 06 Phase 6).
+ * Production intervention activity orchestrating the complete Figma intervention journey (STEP 19).
  *
- * SPECIFICATION:
- * - Uses existing STILLFEED design system components and tokens.
- * - Presents clear, non-judgmental information.
- * - Zero shame, guilt, failure, or negative messaging.
- * - Provides a safe, easy return path.
+ * Screen Progression:
+ * 1. Screen 08 — Blocked Reel (Figma 39:162): Choice between "Exit reels" (Go back) and "Watch reels" (Choose a reset).
+ * 2. Screen 09 — Reset Activity (Figma 64:7): Choose & execute a pause, walk, movement, or card reset with timer.
+ * 3. Screen 10 — Awareness Cards (Figma 64:46): Read authored reflective cards with pause indicator.
+ * 4. Screen 11 — Unlock (Figma 64:65): Select 5, 10, 20, or 30 Reels/Shorts batch unlock.
+ *
+ * Guarantees:
+ * - Single activity prevents duplicate screen stacking.
+ * - Back button safely steps back or exits without granting an unlock.
+ * - Atomic unlock creation before returning to the protected app.
  */
 class InterventionActivity : ComponentActivity() {
 
@@ -48,21 +41,93 @@ class InterventionActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val blockedPackage = intent.getStringExtra(EXTRA_BLOCKED_PACKAGE) ?: ""
-        val surfaceCategory = intent.getStringExtra(EXTRA_SURFACE_CATEGORY) ?: "Short-form"
+        val surfaceCategory = intent.getStringExtra(EXTRA_SURFACE_CATEGORY) ?: "Reel"
+
+        val app = application as? StillfeedApplication
 
         setContent {
             StillfeedTheme {
-                InterventionContent(
-                    surfaceCategory = surfaceCategory,
-                    onReturn = { finish() },
-                    onOpenStillfeed = {
-                        val mainIntent = Intent(this, MainActivity::class.java).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        }
-                        startActivity(mainIntent)
+                val vm: InterventionViewModel = viewModel(
+                    factory = app?.let {
+                        InterventionViewModel.provideFactory(
+                            unlockSessionRepository = it.unlockSessionRepository,
+                            usageRepository = it.usageRepository,
+                            blockedPackage = blockedPackage,
+                            surfaceCategory = surfaceCategory
+                        )
+                    } ?: throw IllegalStateException("StillfeedApplication must be initialized.")
+                )
+
+                val uiState by vm.uiState.collectAsState()
+
+                // Intercept hardware/system back button
+                BackHandler {
+                    val handled = vm.handleBackNavigation()
+                    if (!handled) {
                         finish()
                     }
-                )
+                }
+
+                // If unlock granted successfully, return to target app or finish
+                LaunchedEffect(uiState.isUnlockSuccessful) {
+                    if (uiState.isUnlockSuccessful) {
+                        try {
+                            if (blockedPackage.isNotBlank()) {
+                                val launchIntent = packageManager.getLaunchIntentForPackage(blockedPackage)
+                                if (launchIntent != null) {
+                                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                                    startActivity(launchIntent)
+                                }
+                            }
+                        } catch (_: Exception) {
+                            // Fail-safe
+                        }
+                        finish()
+                    }
+                }
+
+                Crossfade(targetState = uiState.currentStep, label = "interventionCrossfade") { step ->
+                    when (step) {
+                        InterventionStep.BLOCKED_REEL -> {
+                            Screen08BlockedReel(
+                                todayReelsCount = uiState.todayReelsCount,
+                                onChooseReset = { vm.onChooseReset() },
+                                onGoBack = { finish() }
+                            )
+                        }
+                        InterventionStep.RESET_SELECTION,
+                        InterventionStep.RESET_IN_PROGRESS -> {
+                            Screen09ResetActivity(
+                                todayReelsCount = uiState.todayReelsCount,
+                                selectedActivity = uiState.selectedActivity,
+                                isTimerRunning = uiState.isActivityTimerRunning,
+                                remainingSeconds = uiState.activityRemainingSeconds,
+                                onSelectActivity = { vm.onSelectActivity(it) },
+                                onStartActivity = { vm.onStartSelectedActivity() },
+                                onCancelActivity = { vm.onCancelActivityTimer() }
+                            )
+                        }
+                        InterventionStep.AWARENESS_CARDS -> {
+                            Screen10AwarenessCards(
+                                card = uiState.currentCard,
+                                cardIndex = uiState.currentCardIndex,
+                                totalCards = uiState.cards.size,
+                                isLastCard = uiState.isLastCard,
+                                onNextCard = { vm.onNextCard() },
+                                onFinishReflection = { vm.onFinishAwarenessCards() }
+                            )
+                        }
+                        InterventionStep.UNLOCK_SELECTION -> {
+                            Screen11UnlockSelection(
+                                selectedBatch = uiState.selectedBatchAllowance,
+                                isSubmitting = uiState.isSubmittingUnlock,
+                                errorMessage = uiState.errorMessage,
+                                onSelectBatch = { vm.onSelectBatchAllowance(it) },
+                                onConfirmUnlock = { vm.onConfirmUnlock() }
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -70,68 +135,5 @@ class InterventionActivity : ComponentActivity() {
     companion object {
         const val EXTRA_BLOCKED_PACKAGE = "extra_blocked_package"
         const val EXTRA_SURFACE_CATEGORY = "extra_surface_category"
-    }
-}
-
-@Composable
-fun InterventionContent(
-    surfaceCategory: String,
-    onReturn: () -> Unit,
-    onOpenStillfeed: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(StillfeedTheme.colors.backgroundPrimary)
-            .systemBarsPadding()
-            .padding(StillfeedTheme.spacing.screenMargin),
-        contentAlignment = Alignment.Center
-    ) {
-        StillfeedCard(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(StillfeedTheme.spacing.cardPadding),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                StillfeedStatusBadge(status = StillfeedStatus.Protected)
-
-                Spacer(modifier = Modifier.height(StillfeedTheme.spacing.md))
-
-                Text(
-                    text = stringResource(R.string.intervention_title),
-                    style = StillfeedTheme.typography.titleLarge,
-                    color = StillfeedTheme.colors.textPrimary,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
-
-                Text(
-                    text = stringResource(R.string.intervention_subtitle),
-                    style = StillfeedTheme.typography.bodyMedium,
-                    color = StillfeedTheme.colors.textSecondary,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(StillfeedTheme.spacing.xl))
-
-                StillfeedPrimaryButton(
-                    text = stringResource(R.string.intervention_button_return),
-                    onClick = onReturn
-                )
-
-                Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
-
-                StillfeedSecondaryButton(
-                    text = stringResource(R.string.intervention_button_open_app),
-                    onClick = onOpenStillfeed
-                )
-            }
-        }
     }
 }

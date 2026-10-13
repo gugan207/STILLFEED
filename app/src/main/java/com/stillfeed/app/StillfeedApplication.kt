@@ -58,11 +58,16 @@ class StillfeedApplication : Application() {
     lateinit var authRepository: AuthRepository
         private set
 
+    val unlockSessionRepository: com.stillfeed.app.domain.repository.UnlockSessionRepository by lazy {
+        com.stillfeed.app.data.repository.DefaultUnlockSessionRepository(unlockHistoryRepository)
+    }
+
     val protectionEngine: com.stillfeed.app.protection.engine.ProtectionEngine by lazy {
         com.stillfeed.app.protection.engine.DefaultProtectionEngine(
             protectionStateRepository = protectionStateRepository,
             usageRepository = usageRepository,
-            classifier = com.stillfeed.app.protection.detection.CompositeSurfaceClassifier()
+            classifier = com.stillfeed.app.protection.detection.CompositeSurfaceClassifier(),
+            unlockSessionRepository = unlockSessionRepository
         )
     }
 
