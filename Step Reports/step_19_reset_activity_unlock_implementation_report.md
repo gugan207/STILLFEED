@@ -212,14 +212,17 @@ stateDiagram-v2
 ## 7. Tracking Limitations and Counting Reliability
 
 ### Android Accessibility Realities:
-1. **Event Multiplicity:** Android sends multiple `TYPE_WINDOW_STATE_CHANGED` and `TYPE_WINDOW_CONTENT_CHANGED` events during a single Reel view (e.g. comments popup, volume toggle, view recycling).
-2. **Deduplication Strategy Implemented in `DefaultUnlockSessionRepository`:**
-   - **Signal Key Deduplication:** If the same matched view ID / signal key is reported within `DEDUPE_SAME_SIGNAL_WINDOW_MS` (3.0 seconds), the event is treated as the same view and allowance is not decremented.
-   - **Minimum Consumption Interval:** A minimum threshold of `MIN_REEL_CONSUMPTION_INTERVAL_MS` (1.5 seconds) is enforced between decrements. A human cannot physically consume a new short-form video in under 1.5 seconds.
-3. **Documented Limitations:**
-   - Because Stillfeed does not inspect private video identifiers (to preserve user privacy and avoid brittle DOM scraping), rapid micro-swipes cannot be distinguished from background view refreshes with 100% cryptographic certainty.
-   - `isIndeterminateTracking` flag is reserved for situations where window state becomes ambiguous.
-   - Per requirements, the full floating companion overlay and fine-grained counter are reserved for Step 21.
+1. **Event Multiplicity:** Android sends multiple `TYPE_WINDOW_STATE_CHANGED` and `TYPE_WINDOW_CONTENT_CHANGED` events during a single Reel view (e.g. comments popup, volume toggle, progress ticks, caption updates, view recycling).
+2. **Defensible Deduplication Implemented in `DefaultUnlockSessionRepository`:**
+   - **Static Container Repeat Protection:** When the user remains on the same short-form viewer surface (`signalKey == previousKey`, such as `clips_viewer_view_pager` or `reel_recycler`), repeated accessibility events are completely deduplicated. The allowance is decremented only once upon entry, never on subsequent ticks or elapsed time on the same surface.
+   - **Explicit Indeterminate Tracking State:** Because Android Accessibility does not expose unique per-video IDs without scraping user content (which Stillfeed forbids for privacy), static view IDs cannot verify discrete swipe transitions with 100% certainty. The session explicitly marks `isIndeterminateTracking = true` rather than falsely claiming multiple reels were watched or prematurely kicking the user out.
+   - **Minimum Consumption Interval:** A minimum threshold of `MIN_REEL_CONSUMPTION_INTERVAL_MS` (1.5 seconds) is strictly enforced between any distinct signal transitions.
+3. **Truthful Usage-Count Badges (Screens 08 & 09):**
+   - Hardcoded mock values (such as "18 reels today") were completely removed from `InterventionUiState`.
+   - `todayReelsCount` defaults to `null`. It is populated solely if verified tracking events exist in `UsageRepository`.
+   - If no tracking data exists or count is zero, the badge is omitted on Screen 08 and replaced with a clean *"Reset moment · Pause before opening short video"* card on Screen 09.
+4. **Step 21 Separation:**
+   - The detailed visual counter, swipe gesture tracker, and floating companion overlay strictly belong to Step 21. No fake or speculative counter is simulated here.
 
 ---
 
