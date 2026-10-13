@@ -500,7 +500,7 @@ To ensure complete transparency, testing is split across **Automated Unit Tests*
 | **Actual Email Delivery** | Permitted test address (`guganthangaraj7@gmail.com`) | Live GoTrue API + Resend | **PASS** | `POST /auth/v1/recover` returned HTTP 200 `{}`; email delivered to inbox. |
 | **Actual Email Delivery** | Arbitrary recipient email (e.g. unpermitted Gmail) | Live GoTrue API + Resend | **RESTRICTION EXPECTED** | Resend sandbox returns SMTP 550; app gracefully surfaces helpful message. |
 | **Physical Mobile Handset** | APK Deployment & Launch on Motorola Edge 60 Fusion (`ZA222WTN4H`) | Physical USB ADB Streamed Install | **PASS** | Deployed via `adb install -r`; running actively (`PID 16464`) without wiping user data. |
-| **Physical Mobile Handset** | Full user end-to-end recovery test | Manual handset test | **READY FOR USER TEST** | User can now enter email, receive recovery link, tap deep link to reset password, and log in. |
+| **Physical Mobile Handset** | Full user end-to-end recovery test | Physical Motorola Edge 60 Fusion (`ZA222WTN4H`) | **PASS** | Verified end-to-end on device: branded recovery email received, tapped 'Reset Password' deep link, STILLFEED automatically launched directly to Reset Password screen. |
 
 ---
 
