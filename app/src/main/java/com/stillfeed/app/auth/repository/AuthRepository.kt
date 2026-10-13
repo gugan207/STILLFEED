@@ -42,8 +42,25 @@ interface AuthRepository {
     /**
      * Send password reset recovery link or token.
      */
-    suspend fun sendPasswordReset(email: String): Result<Unit> =
+    suspend fun sendPasswordReset(email: String, redirectTo: String? = null): Result<Unit> =
         Result.failure(UnsupportedOperationException("Password recovery not supported"))
+
+    /**
+     * Processes an incoming password recovery deep-link (validates recovery session).
+     */
+    suspend fun handleRecoveryLink(deepLinkUri: String): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Recovery link handling not supported"))
+
+    /**
+     * Resets password for the user in the active recovery session.
+     */
+    suspend fun resetPassword(newPassword: CharSequence): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Password reset not supported"))
+
+    /**
+     * Clears any active recovery session.
+     */
+    fun clearRecoverySession() {}
 
     /**
      * Authenticate via Google Sign-In with Google ID token.

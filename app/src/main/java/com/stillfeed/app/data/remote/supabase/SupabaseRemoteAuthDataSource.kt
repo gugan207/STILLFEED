@@ -48,9 +48,17 @@ class SupabaseRemoteAuthDataSource(
     }
 
     override suspend fun recoverPassword(
-        email: String
+        email: String,
+        redirectTo: String?
     ): Result<Unit> {
-        return client.authRecoverPassword(email).map { }
+        return client.authRecoverPassword(email, redirectTo).map { }
+    }
+
+    override suspend fun updatePassword(
+        accessToken: String,
+        newPassword: CharSequence
+    ): Result<Unit> {
+        return client.authUpdateUserPassword(accessToken, newPassword).map { }
     }
 
     override suspend fun signInWithGoogle(

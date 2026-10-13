@@ -214,5 +214,157 @@ class AuthViewModelTest {
         assertTrue(viewModel.currentAuthState.value is AuthState.SignedIn)
         assertEquals("google_user@stillfeed.app", viewModel.uiState.value.authenticatedUser?.email)
     }
+
+    // -------------------------------------------------------------------------
+    // Forgot Password & Reset Password Tests
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun submitForgotPassword_withInvalidEmail_showsValidationMessage() = testScope.runTest {
+        viewModel.onEmailChanged("not-a-valid-email")
+        viewModel.navigateToForgotPassword()
+
+        viewModel.submitForgotPassword()
+        advanceUntilIdle()
+
+        assertEquals(com.stillfeed.app.auth.ui.AuthScreenMode.FORGOT_PASSWORD, viewModel.uiState.value.currentMode)
+        assertEquals("Please enter a valid email address.", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun submitForgotPassword_whenRepositoryFails_showsErrorMessage() = testScope.runTest {
+        repository.simulateRecoveryError = true
+        viewModel.onEmailChanged("unregistered@example.com")
+        viewModel.navigateToForgotPassword()
+
+        viewModel.submitForgotPassword()
+        advanceUntilIdle()
+
+        assertEquals(com.stillfeed.app.auth.ui.AuthScreenMode.FORGOT_PASSWORD, viewModel.uiState.value.currentMode)
+        assertTrue(viewModel.uiState.value.errorMessage?.contains("guganthangaraj7@gmail.com") == true)
+    }
+
+    @Test
+    fun resendForgotPassword_respectsCooldown() = testScope.runTest {
+        viewModel.onEmailChanged("reset@stillfeed.app")
+        viewModel.navigateToForgotPassword()
+        viewModel.submitForgotPassword()
+        testScheduler.runCurrent()
+
+        assertEquals(com.stillfeed.app.auth.ui.AuthScreenMode.RESET_LINK_SENT, viewModel.uiState.value.currentMode)
+        assertEquals(60, viewModel.uiState.value.resendCountdownSeconds)
+
+        // Attempt resend while cooldown is still ticking (60s)
+        viewModel.resendForgotPassword()
+        testScheduler.runCurrent()
+        assertNull("Feedback should not be updated if returned early due to cooldown", viewModel.uiState.value.resetLinkResendFeedback)
+
+        // Advance idle: 60s elapsed, cooldown reaches 0
+        testScheduler.advanceTimeBy(60_000L)
+        testScheduler.runCurrent()
+        assertEquals(0, viewModel.uiState.value.resendCountdownSeconds)
+
+        // Resend now succeeds and restarts cooldown
+        viewModel.resendForgotPassword()
+        testScheduler.runCurrent()
+        assertEquals("A new reset link has been sent to your email.", viewModel.uiState.value.resetLinkResendFeedback)
+    }
+
+    @Test
+    fun handleDeepLink_withValidRecoveryUri_switchesToResetPasswordMode() = testScope.runTest {
+        val recoveryUri = "stillfeed://reset-password#access_token=token_123&type=recovery"
+        viewModel.handleDeepLink(recoveryUri)
+        advanceUntilIdle()
+
+        assertEquals(com.stillfeed.app.auth.ui.AuthScreenMode.RESET_PASSWORD, viewModel.uiState.value.currentMode)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun handleDeepLink_withErrorUri_showsErrorInForgotPasswordMode() = testScope.runTest {
+        val errorUri = "stillfeed://reset-password#error=unauthorized_client&error_description=Email+link+is+invalid+or+has+expired"
+        viewModel.handleDeepLink(errorUri)
+        advanceUntilIdle()
+
+        assertEquals(com.stillfeed.app.auth.ui.AuthScreenMode.FORGOT_PASSWORD, viewModel.uiState.value.currentMode)
+        assertTrue(viewModel.uiState.value.errorMessage?.contains("expired or is invalid") == true)
+    }
+
+    @Test
+    fun submitResetPassword_withWeakPassword_showsValidationMessage() = testScope.runTest {
+        viewModel.handleDeepLink("stillfeed://reset-password#access_token=token_123&type=recovery")
+        advanceUntilIdle()
+
+        viewModel.onNewPasswordChanged("weak")
+        viewModel.onConfirmNewPasswordChanged("weak")
+        viewModel.submitResetPassword()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isResetPasswordSuccess)
+        assertEquals("Use at least 8 characters.", viewModel.uiState.value.newPasswordError)
+    }
+
+    @Test
+    fun submitResetPassword_withMismatchedPasswords_showsMismatchMessage() = testScope.runTest {
+        viewModel.handleDeepLink("stillfeed://reset-password#access_token=token_123&type=recovery")
+        advanceUntilIdle()
+
+        viewModel.onNewPasswordChanged("Password123!")
+        viewModel.onConfirmNewPasswordChanged("Different123!")
+        viewModel.submitResetPassword()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isResetPasswordSuccess)
+        assertEquals("Passwords don’t match.", viewModel.uiState.value.confirmNewPasswordError)
+    }
+
+    @Test
+    fun submitResetPassword_success_updatesUiStateToSuccessAndWipesPasswords() = testScope.runTest {
+        viewModel.handleDeepLink("stillfeed://reset-password#access_token=token_123&type=recovery")
+        advanceUntilIdle()
+
+        viewModel.onNewPasswordChanged("NewValidPassword123!")
+        viewModel.onConfirmNewPasswordChanged("NewValidPassword123!")
+        viewModel.submitResetPassword()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.isResetPasswordSuccess)
+        assertEquals("Your password has been reset successfully! Please sign in with your new password.", viewModel.uiState.value.resetPasswordSuccessMessage)
+        assertEquals("", viewModel.uiState.value.newPasswordInput)
+        assertEquals("", viewModel.uiState.value.confirmNewPasswordInput)
+    }
+
+    @Test
+    fun submitResetPassword_whenRepositoryFails_showsErrorMessage() = testScope.runTest {
+        repository.simulateUpdatePasswordError = true
+        viewModel.handleDeepLink("stillfeed://reset-password#access_token=token_123&type=recovery")
+        advanceUntilIdle()
+
+        viewModel.onNewPasswordChanged("NewValidPassword123!")
+        viewModel.onConfirmNewPasswordChanged("NewValidPassword123!")
+        viewModel.submitResetPassword()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isResetPasswordSuccess)
+        assertTrue(viewModel.uiState.value.errorMessage?.contains("Session expired") == true)
+    }
+
+    @Test
+    fun navigateToSignIn_fromResetPassword_clearsPasswordsAndResetsSession() = testScope.runTest {
+        viewModel.handleDeepLink("stillfeed://reset-password#access_token=token_123&type=recovery")
+        advanceUntilIdle()
+
+        viewModel.onNewPasswordChanged("TemporaryPass123!")
+        viewModel.onConfirmNewPasswordChanged("TemporaryPass123!")
+
+        viewModel.navigateToSignIn()
+
+        assertEquals(com.stillfeed.app.auth.ui.AuthScreenMode.SIGN_IN, viewModel.uiState.value.currentMode)
+        assertEquals("", viewModel.uiState.value.newPasswordInput)
+        assertEquals("", viewModel.uiState.value.confirmNewPasswordInput)
+        assertFalse(viewModel.uiState.value.isResetPasswordSuccess)
+        assertNull(viewModel.uiState.value.newPasswordError)
+        assertNull(viewModel.uiState.value.confirmNewPasswordError)
+    }
 }
 

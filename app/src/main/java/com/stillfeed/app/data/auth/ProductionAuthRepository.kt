@@ -48,6 +48,9 @@ class ProductionAuthRepository(
     )
     override val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
+    @Volatile
+    private var activeRecoveryAccessToken: String? = null
+
     init {
         coroutineScope?.launch(ioDispatcher) {
             try {
@@ -248,9 +251,117 @@ class ProductionAuthRepository(
         remoteAuthDataSource.resendOtp(normalizedEmail)
     }
 
-    override suspend fun sendPasswordReset(email: String): Result<Unit> = withContext(ioDispatcher) {
+    override suspend fun sendPasswordReset(email: String, redirectTo: String?): Result<Unit> = withContext(ioDispatcher) {
         val normalizedEmail = email.trim().lowercase()
-        remoteAuthDataSource.recoverPassword(normalizedEmail)
+        val redirect = redirectTo ?: "stillfeed://reset-password"
+        val remoteResult = remoteAuthDataSource.recoverPassword(normalizedEmail, redirect)
+        if (remoteResult.isFailure) {
+            val exception = remoteResult.exceptionOrNull() ?: RuntimeException("Password recovery request failed")
+            val authError = mapToAuthError(exception, isSignUp = false)
+            return@withContext Result.failure(IllegalArgumentException(authError.userMessage))
+        }
+        Result.success(Unit)
+    }
+
+    override suspend fun handleRecoveryLink(deepLinkUri: String): Result<Unit> = withContext(ioDispatcher) {
+        val uri = deepLinkUri.trim()
+        if (uri.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Invalid recovery link."))
+        }
+
+        val params = parseUriParams(uri)
+
+        // Check for error parameters (expired/invalid link)
+        val error = params["error"] ?: params["error_code"]
+        if (!error.isNullOrBlank()) {
+            val errorDescription = params["error_description"]?.replace("+", " ")
+                ?: "This password reset link has expired or is invalid. Please request a new link."
+            activeRecoveryAccessToken = null
+            return@withContext Result.failure(IllegalArgumentException(errorDescription))
+        }
+
+        // Check for direct access_token in fragment (#access_token=...) or query (?access_token=...)
+        val accessToken = params["access_token"]
+        if (!accessToken.isNullOrBlank()) {
+            activeRecoveryAccessToken = accessToken
+            return@withContext Result.success(Unit)
+        }
+
+        // Check for token or token_hash (e.g. from /verify?token=...&type=recovery)
+        val token = params["token"] ?: params["token_hash"]
+        if (!token.isNullOrBlank()) {
+            val verifyResult = remoteAuthDataSource.verifyEmailOtp(email = "", token = token, type = "recovery")
+            if (verifyResult.isSuccess) {
+                val response = verifyResult.getOrThrow()
+                activeRecoveryAccessToken = response.accessToken
+                return@withContext Result.success(Unit)
+            } else {
+                activeRecoveryAccessToken = null
+                val exception = verifyResult.exceptionOrNull() ?: RuntimeException("Invalid token")
+                val authError = mapToAuthError(exception, isSignUp = false)
+                return@withContext Result.failure(IllegalArgumentException(authError.userMessage))
+            }
+        }
+
+        Result.failure(IllegalArgumentException("Malformed or unrecognized password reset link."))
+    }
+
+    override suspend fun resetPassword(newPassword: CharSequence): Result<Unit> = withContext(ioDispatcher) {
+        val token = activeRecoveryAccessToken
+        if (token.isNullOrBlank()) {
+            return@withContext Result.failure(IllegalStateException("No active recovery session found. Please open the reset link from your email."))
+        }
+        if (newPassword.length < 8) {
+            return@withContext Result.failure(IllegalArgumentException("Password must be at least 8 characters."))
+        }
+        if (!newPassword.any { it.isUpperCase() } || !newPassword.any { !it.isLetter() }) {
+            return@withContext Result.failure(IllegalArgumentException("Password must include at least 1 uppercase letter and 1 number or symbol."))
+        }
+
+        val remoteResult = remoteAuthDataSource.updatePassword(token, newPassword)
+        if (remoteResult.isFailure) {
+            val exception = remoteResult.exceptionOrNull() ?: RuntimeException("Password update failed")
+            val authError = mapToAuthError(exception, isSignUp = false)
+            return@withContext Result.failure(IllegalArgumentException(authError.userMessage))
+        }
+
+        activeRecoveryAccessToken = null
+        Result.success(Unit)
+    }
+
+    override fun clearRecoverySession() {
+        activeRecoveryAccessToken = null
+    }
+
+    private fun parseUriParams(uriString: String): Map<String, String> {
+        val params = mutableMapOf<String, String>()
+        val fragmentIndex = uriString.indexOf('#')
+        if (fragmentIndex != -1 && fragmentIndex < uriString.length - 1) {
+            val fragment = uriString.substring(fragmentIndex + 1)
+            parseQueryString(fragment, params)
+        }
+        val queryIndex = uriString.indexOf('?')
+        if (queryIndex != -1) {
+            val queryEnd = if (fragmentIndex != -1 && fragmentIndex > queryIndex) fragmentIndex else uriString.length
+            val query = uriString.substring(queryIndex + 1, queryEnd)
+            parseQueryString(query, params)
+        }
+        return params
+    }
+
+    private fun parseQueryString(queryString: String, params: MutableMap<String, String>) {
+        queryString.split('&').forEach { pair ->
+            val eq = pair.indexOf('=')
+            if (eq != -1) {
+                val key = pair.substring(0, eq)
+                val value = pair.substring(eq + 1)
+                try {
+                    params[key] = java.net.URLDecoder.decode(value, "UTF-8")
+                } catch (_: Exception) {
+                    params[key] = value
+                }
+            }
+        }
     }
 
     override suspend fun signInWithGoogle(idToken: String): Result<AuthUser> = withContext(ioDispatcher) {
@@ -460,8 +571,9 @@ class ProductionAuthRepository(
                 AuthError.AccountAlreadyExists()
             }
             message.contains("550") || message.contains("could not send email") || message.contains("testing emails") ||
-                message.contains("confirmation mail") || message.contains("confirmation email") -> {
-                AuthError.Unknown("Unable to send verification email. If using Resend in test mode, emails can only be sent to the verified account owner (guganthangaraj7@gmail.com). To send to other emails, verify a domain in Resend.")
+                message.contains("confirmation mail") || message.contains("confirmation email") ||
+                message.contains("recovery email") || message.contains("recovery mail") -> {
+                AuthError.Unknown("Unable to send email. In Resend test mode, emails can only be sent to the verified account owner (guganthangaraj7@gmail.com). To send to other emails, verify a domain in Resend.")
             }
             message.contains("network") || message.contains("timeout") || message.contains("connect") || message.contains("unable to connect") -> {
                 AuthError.NetworkFailure()

@@ -53,6 +53,15 @@ fun StillfeedNavHost(
         factory = AuthViewModel.provideFactory(repository)
     )
 
+    val pendingDeepLink by (app?.pendingDeepLink?.collectAsState() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(null) })
+    androidx.compose.runtime.LaunchedEffect(pendingDeepLink) {
+        val link = pendingDeepLink
+        if (!link.isNullOrBlank()) {
+            authVm.handleDeepLink(link)
+            app?.pendingDeepLink?.value = null
+        }
+    }
+
     val resolvedAwarenessVm: AwarenessViewModel? = awarenessViewModel ?: app?.let {
         viewModel(
             factory = AwarenessViewModel.provideFactory(

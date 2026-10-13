@@ -126,6 +126,14 @@ class AuthViewModel(
         _uiState.update { it.copy(displayNameInput = name, errorMessage = null) }
     }
 
+    fun onNewPasswordChanged(password: String) {
+        _uiState.update { it.copy(newPasswordInput = password, errorMessage = null, newPasswordError = null) }
+    }
+
+    fun onConfirmNewPasswordChanged(confirmPassword: String) {
+        _uiState.update { it.copy(confirmNewPasswordInput = confirmPassword, errorMessage = null, confirmNewPasswordError = null) }
+    }
+
     fun onOtpChanged(otp: String) {
         val filtered = otp.filter { it.isDigit() }.take(6)
         _uiState.update { it.copy(otpInput = filtered, errorMessage = null) }
@@ -168,6 +176,7 @@ class AuthViewModel(
     }
 
     fun navigateToSignIn() {
+        authRepository.clearRecoverySession()
         _uiState.update {
             it.copy(
                 currentMode = AuthScreenMode.SIGN_IN,
@@ -176,6 +185,13 @@ class AuthViewModel(
                 passwordError = null,
                 confirmPasswordError = null,
                 emailError = null,
+                newPasswordError = null,
+                confirmNewPasswordError = null,
+                newPasswordInput = "",
+                confirmNewPasswordInput = "",
+                isResetPasswordSuccess = false,
+                resetPasswordSuccessMessage = null,
+                resetLinkResendFeedback = null,
                 passwordInput = "",
                 confirmPasswordInput = "",
                 otpInput = ""
@@ -188,7 +204,19 @@ class AuthViewModel(
             it.copy(
                 currentMode = AuthScreenMode.FORGOT_PASSWORD,
                 errorMessage = null,
-                emailError = null
+                emailError = null,
+                resetLinkResendFeedback = null
+            )
+        }
+    }
+
+    fun navigateToResetPassword() {
+        _uiState.update {
+            it.copy(
+                currentMode = AuthScreenMode.RESET_PASSWORD,
+                errorMessage = null,
+                newPasswordError = null,
+                confirmNewPasswordError = null
             )
         }
     }
@@ -361,19 +389,143 @@ class AuthViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null, emailError = null) }
-            val result = authRepository.sendPasswordReset(email)
+            val result = authRepository.sendPasswordReset(email, redirectTo = "stillfeed://reset-password")
             if (result.isSuccess) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         currentMode = AuthScreenMode.RESET_LINK_SENT,
                         resetEmailSentTo = email,
+                        errorMessage = null,
+                        resetLinkResendFeedback = null
+                    )
+                }
+                startResendCountdown(60)
+            } else {
+                val msg = result.exceptionOrNull()?.message ?: "Unable to send reset link."
+                _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
+            }
+        }
+    }
+
+    fun resendForgotPassword() {
+        val currentState = _uiState.value
+        if (currentState.isLoading || currentState.resendCountdownSeconds > 0) return
+        val email = currentState.resetEmailSentTo ?: currentState.emailInput.trim()
+        if (email.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, resetLinkResendFeedback = null) }
+            val result = authRepository.sendPasswordReset(email, redirectTo = "stillfeed://reset-password")
+            if (result.isSuccess) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = null,
+                        resetLinkResendFeedback = "A new reset link has been sent to your email."
+                    )
+                }
+                startResendCountdown(60)
+            } else {
+                val msg = result.exceptionOrNull()?.message ?: "Unable to resend reset link."
+                _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
+            }
+        }
+    }
+
+    fun handleDeepLink(uriString: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            val result = authRepository.handleRecoveryLink(uriString)
+            if (result.isSuccess) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        currentMode = AuthScreenMode.RESET_PASSWORD,
+                        errorMessage = null,
+                        newPasswordInput = "",
+                        confirmNewPasswordInput = "",
+                        newPasswordError = null,
+                        confirmNewPasswordError = null,
+                        isResetPasswordSuccess = false,
+                        resetPasswordSuccessMessage = null
+                    )
+                }
+            } else {
+                val errorMsg = result.exceptionOrNull()?.message
+                    ?: "This password reset link is invalid or has expired."
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        currentMode = AuthScreenMode.FORGOT_PASSWORD,
+                        errorMessage = errorMsg
+                    )
+                }
+            }
+        }
+    }
+
+    fun submitResetPassword() {
+        val currentState = _uiState.value
+        if (currentState.isLoading) return
+        val newPassword = currentState.newPasswordInput
+        val confirmPassword = currentState.confirmNewPasswordInput
+
+        if (newPassword.isBlank()) {
+            _uiState.update { it.copy(newPasswordError = "Please enter a new password.", errorMessage = "Please enter a new password.") }
+            return
+        }
+        if (newPassword.length < 8) {
+            _uiState.update { it.copy(newPasswordError = "Use at least 8 characters.", errorMessage = "Please choose a password with at least 8 characters.") }
+            return
+        }
+        if (!newPassword.any { it.isUpperCase() } || !newPassword.any { !it.isLetter() }) {
+            _uiState.update {
+                it.copy(
+                    newPasswordError = "Must include 1 uppercase and 1 number/symbol.",
+                    errorMessage = "Password must include at least 1 uppercase letter and 1 number or symbol."
+                )
+            }
+            return
+        }
+        if (confirmPassword.isBlank()) {
+            _uiState.update { it.copy(confirmNewPasswordError = "Please confirm your password.", errorMessage = "Please confirm your password.") }
+            return
+        }
+        if (newPassword != confirmPassword) {
+            _uiState.update {
+                it.copy(
+                    confirmNewPasswordError = "Passwords don’t match.",
+                    errorMessage = "The passwords do not match. Please check and try again."
+                )
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            val result = authRepository.resetPassword(newPassword)
+            if (result.isSuccess) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isResetPasswordSuccess = true,
+                        resetPasswordSuccessMessage = "Your password has been reset successfully! Please sign in with your new password.",
+                        newPasswordInput = "",
+                        confirmNewPasswordInput = "",
                         errorMessage = null
                     )
                 }
             } else {
-                val msg = result.exceptionOrNull()?.message ?: "Unable to send reset link."
-                _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
+                val msg = result.exceptionOrNull()?.message ?: "Unable to reset password."
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = msg,
+                        newPasswordInput = "",
+                        confirmNewPasswordInput = ""
+                    )
+                }
             }
         }
     }

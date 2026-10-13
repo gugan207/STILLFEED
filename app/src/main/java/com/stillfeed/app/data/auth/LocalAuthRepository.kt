@@ -161,9 +161,32 @@ class LocalAuthRepository(
         Result.success(Unit)
     }
 
-    override suspend fun sendPasswordReset(email: String): Result<Unit> = withContext(ioDispatcher) {
+    var simulateRecoveryError: Boolean = false
+    var simulateUpdatePasswordError: Boolean = false
+
+    override suspend fun sendPasswordReset(email: String, redirectTo: String?): Result<Unit> = withContext(ioDispatcher) {
+        if (simulateRecoveryError) {
+            return@withContext Result.failure(IllegalArgumentException("Password recovery email could not be delivered. In Resend development mode, delivery is permitted only to guganthangaraj7@gmail.com."))
+        }
         Result.success(Unit)
     }
+
+    override suspend fun handleRecoveryLink(deepLinkUri: String): Result<Unit> = withContext(ioDispatcher) {
+        if (deepLinkUri.contains("error")) {
+            Result.failure(IllegalArgumentException("This password reset link has expired or is invalid. Please request a new link."))
+        } else {
+            Result.success(Unit)
+        }
+    }
+
+    override suspend fun resetPassword(newPassword: CharSequence): Result<Unit> = withContext(ioDispatcher) {
+        if (simulateUpdatePasswordError) {
+            return@withContext Result.failure(IllegalArgumentException("Failed to update password. Session expired."))
+        }
+        Result.success(Unit)
+    }
+
+    override fun clearRecoverySession() {}
 
     override suspend fun signInWithGoogle(idToken: String): Result<AuthUser> = withContext(ioDispatcher) {
         if (idToken.isBlank()) {

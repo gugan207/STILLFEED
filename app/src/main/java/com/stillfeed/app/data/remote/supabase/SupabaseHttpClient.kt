@@ -164,17 +164,45 @@ class SupabaseHttpClient(
      * Executes Supabase Auth password recovery (/auth/v1/recover).
      */
     suspend fun authRecoverPassword(
-        email: String
+        email: String,
+        redirectTo: String? = null
     ): Result<String> = withContext(ioDispatcher) {
-        val endpoint = "$baseUrl${SupabaseConfig.AUTH_PATH}/recover"
+        val endpoint = if (!redirectTo.isNullOrBlank()) {
+            val encodedRedirect = java.net.URLEncoder.encode(redirectTo, "UTF-8")
+            "$baseUrl${SupabaseConfig.AUTH_PATH}/recover?redirect_to=$encodedRedirect"
+        } else {
+            "$baseUrl${SupabaseConfig.AUTH_PATH}/recover"
+        }
         val payload = JSONObject().apply {
             put("email", email.trim().lowercase())
+            if (!redirectTo.isNullOrBlank()) {
+                put("redirect_to", redirectTo)
+            }
         }
         sendRequest(
             endpoint = endpoint,
             method = "POST",
             body = payload.toString(),
             accessToken = null
+        )
+    }
+
+    /**
+     * Executes Supabase Auth user update (/auth/v1/user) to securely set a new password.
+     */
+    suspend fun authUpdateUserPassword(
+        accessToken: String,
+        newPassword: CharSequence
+    ): Result<String> = withContext(ioDispatcher) {
+        val endpoint = "$baseUrl${SupabaseConfig.AUTH_PATH}/user"
+        val payload = JSONObject().apply {
+            put("password", newPassword.toString())
+        }
+        sendRequest(
+            endpoint = endpoint,
+            method = "PUT",
+            body = payload.toString(),
+            accessToken = accessToken
         )
     }
 

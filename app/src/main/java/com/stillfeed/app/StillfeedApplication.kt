@@ -123,6 +123,8 @@ class StillfeedApplication : Application() {
         com.stillfeed.app.data.remote.supabase.SupabaseRemoteHistoryRepository(supabaseClient)
     }
 
+    val pendingDeepLink = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+
     override fun onCreate() {
         super.onCreate()
 

@@ -33,8 +33,11 @@ interface RemoteAuthDataSource {
     suspend fun resendOtp(email: String, type: String = "signup"): Result<Unit> =
         Result.failure(UnsupportedOperationException("Resend OTP not implemented"))
 
-    suspend fun recoverPassword(email: String): Result<Unit> =
+    suspend fun recoverPassword(email: String, redirectTo: String? = null): Result<Unit> =
         Result.failure(UnsupportedOperationException("Password recovery not implemented"))
+
+    suspend fun updatePassword(accessToken: String, newPassword: CharSequence): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Update password not implemented"))
 
     suspend fun signInWithGoogle(idToken: String): Result<RemoteAuthResponse> =
         Result.failure(UnsupportedOperationException("Google Sign-In not implemented"))

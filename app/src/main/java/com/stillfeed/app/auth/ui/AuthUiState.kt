@@ -15,7 +15,8 @@ enum class AuthScreenMode {
     CREATE_ACCOUNT,
     VERIFY_CODE,
     FORGOT_PASSWORD,
-    RESET_LINK_SENT
+    RESET_LINK_SENT,
+    RESET_PASSWORD
 }
 
 /**
@@ -36,6 +37,13 @@ data class AuthUiState(
     val emailError: String? = null,
     val resendCountdownSeconds: Int = 0,
     val resetEmailSentTo: String? = null,
+    val newPasswordInput: String = "",
+    val confirmNewPasswordInput: String = "",
+    val newPasswordError: String? = null,
+    val confirmNewPasswordError: String? = null,
+    val isResetPasswordSuccess: Boolean = false,
+    val resetPasswordSuccessMessage: String? = null,
+    val resetLinkResendFeedback: String? = null,
     val authenticatedUser: AuthUser? = null
 ) {
     val isInputValid: Boolean

@@ -174,6 +174,10 @@ class InMemoryRemoteAuthDataSource : RemoteAuthDataSource {
     var validOtpCode: String = "123456"
     var resendCallCount: Int = 0
     var recoverEmailSentTo: String? = null
+    var lastRedirectTo: String? = null
+    var updatedPasswordForToken: String? = null
+    var simulateUpdatePasswordError: Boolean = false
+    var simulateRecoveryError: Boolean = false
 
     override suspend fun verifyEmailOtp(email: String, token: String, type: String): Result<RemoteAuthResponse> {
         if (simulateNetworkError) return Result.failure(IOException("Network timeout during OTP verification"))
@@ -208,9 +212,18 @@ class InMemoryRemoteAuthDataSource : RemoteAuthDataSource {
         return Result.success(Unit)
     }
 
-    override suspend fun recoverPassword(email: String): Result<Unit> {
+    override suspend fun recoverPassword(email: String, redirectTo: String?): Result<Unit> {
         if (simulateNetworkError) return Result.failure(IOException("Network timeout during password recovery"))
+        if (simulateRecoveryError) return Result.failure(IllegalArgumentException("Error sending recovery email"))
         recoverEmailSentTo = email.trim().lowercase()
+        lastRedirectTo = redirectTo
+        return Result.success(Unit)
+    }
+
+    override suspend fun updatePassword(accessToken: String, newPassword: CharSequence): Result<Unit> {
+        if (simulateNetworkError) return Result.failure(IOException("Network timeout during password update"))
+        if (simulateUpdatePasswordError) return Result.failure(IllegalArgumentException("Invalid or expired session"))
+        updatedPasswordForToken = newPassword.toString()
         return Result.success(Unit)
     }
 

@@ -94,7 +94,56 @@ fun ResetLinkSentScreen(
                 lineHeight = 22.sp
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            // Feedback and Error Messages
+            if (uiState.errorMessage != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                AuthAlertCard(message = uiState.errorMessage ?: "")
+            }
+
+            if (uiState.resetLinkResendFeedback != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = uiState.resetLinkResendFeedback ?: "",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF2E6930),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // Resend Option with Cooldown
+            val canResend = uiState.resendCountdownSeconds == 0 && !uiState.isLoading
+            Button(
+                onClick = { viewModel.resendForgotPassword() },
+                enabled = canResend,
+                shape = RoundedCornerShape(26.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (canResend) Color(0xFF1F2421) else Color(0xFFE2DDD5),
+                    contentColor = if (canResend) Color(0xFFFFFFFF) else Color(0xFF8C928D),
+                    disabledContainerColor = Color(0xFFE2DDD5),
+                    disabledContentColor = Color(0xFF8C928D)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .semantics { this.role = Role.Button }
+            ) {
+                Text(
+                    text = if (uiState.resendCountdownSeconds > 0) {
+                        "Resend link in ${uiState.resendCountdownSeconds}s"
+                    } else if (uiState.isLoading) {
+                        "Sending link…"
+                    } else {
+                        "Resend reset link"
+                    },
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Back to sign in button (Pill 56dp, #FBF8F2 with #D9D4CA border)
             Button(

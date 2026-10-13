@@ -504,5 +504,93 @@ class ProductionAuthRepositoryTest {
         val authState = repository.authState.first()
         assertTrue(authState is AuthState.Error)
     }
+
+    // -------------------------------------------------------------------------
+    // Password Recovery & Reset Tests
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun sendPasswordReset_success_callsRemoteWithStillfeedDeepLink() = runTest(testDispatcher) {
+        val result = repository.sendPasswordReset("user@example.com")
+        assertTrue(result.isSuccess)
+        assertEquals("user@example.com", remoteAuthDataSource.recoverEmailSentTo)
+        assertEquals("stillfeed://reset-password", remoteAuthDataSource.lastRedirectTo)
+    }
+
+    @Test
+    fun sendPasswordReset_whenRecoveryEmailFails_mapsToDeliveryErrorMessage() = runTest(testDispatcher) {
+        remoteAuthDataSource.simulateRecoveryError = true
+
+        val result = repository.sendPasswordReset("unpermitted@gmail.com")
+        assertTrue(result.isFailure)
+        val message = result.exceptionOrNull()?.message ?: ""
+        assertTrue("Message should explain Resend development restriction", message.contains("guganthangaraj7@gmail.com"))
+    }
+
+    @Test
+    fun handleRecoveryLink_withValidFragmentAccessToken_establishesRecoverySession() = runTest(testDispatcher) {
+        val link = "stillfeed://reset-password#access_token=valid_recovery_token_123&type=recovery&expires_in=3600"
+        val result = repository.handleRecoveryLink(link)
+        assertTrue(result.isSuccess)
+
+        // Reset password should now succeed using this token
+        val resetResult = repository.resetPassword("NewSecurePassword123!")
+        assertTrue(resetResult.isSuccess)
+        assertEquals("NewSecurePassword123!", remoteAuthDataSource.updatedPasswordForToken)
+
+        // Active token is consumed/cleared, subsequent reset without link must fail
+        val secondResetResult = repository.resetPassword("AnotherPassword123!")
+        assertTrue(secondResetResult.isFailure)
+    }
+
+    @Test
+    fun handleRecoveryLink_withErrorFragment_returnsFailureWithExpiredOrInvalidMessage() = runTest(testDispatcher) {
+        val link = "stillfeed://reset-password#error=unauthorized_client&error_code=401&error_description=Email+link+is+invalid+or+has+expired"
+        val result = repository.handleRecoveryLink(link)
+        assertTrue(result.isFailure)
+        val message = result.exceptionOrNull()?.message ?: ""
+        assertTrue("Error message should mention invalid or expired link", message.contains("invalid", ignoreCase = true) || message.contains("expired", ignoreCase = true))
+    }
+
+    @Test
+    fun handleRecoveryLink_withMalformedOrMissingToken_returnsFailure() = runTest(testDispatcher) {
+        val link = "stillfeed://reset-password#something_else=123"
+        val result = repository.handleRecoveryLink(link)
+        assertTrue(result.isFailure)
+        val message = result.exceptionOrNull()?.message ?: ""
+        assertTrue("Error message should state link is malformed or unrecognized", message.contains("Malformed or unrecognized", ignoreCase = true))
+    }
+
+    @Test
+    fun resetPassword_withoutRecoverySession_returnsFailure() = runTest(testDispatcher) {
+        repository.clearRecoverySession()
+        val result = repository.resetPassword("ValidPassword123!")
+        assertTrue(result.isFailure)
+        val message = result.exceptionOrNull()?.message ?: ""
+        assertTrue("Error message should mention active recovery session", message.contains("recovery session", ignoreCase = true))
+    }
+
+    @Test
+    fun resetPassword_withWeakPassword_failsValidationWithoutCallingRemote() = runTest(testDispatcher) {
+        repository.handleRecoveryLink("stillfeed://reset-password#access_token=dummy_token_abc&type=recovery")
+
+        // Too short
+        val shortResult = repository.resetPassword("short")
+        assertTrue(shortResult.isFailure)
+        assertTrue(shortResult.exceptionOrNull()?.message?.contains("at least 8 characters") == true)
+
+        // Missing uppercase
+        val noUpperResult = repository.resetPassword("alllowercase123!")
+        assertTrue(noUpperResult.isFailure)
+        assertTrue(noUpperResult.exceptionOrNull()?.message?.contains("uppercase") == true)
+
+        // Missing number or symbol
+        val noSymbolResult = repository.resetPassword("AllLettersNoNumOrSym")
+        assertTrue(noSymbolResult.isFailure)
+        assertTrue(noSymbolResult.exceptionOrNull()?.message?.contains("number or symbol") == true)
+
+        assertNull("Remote updatePassword should not have been called for invalid input", remoteAuthDataSource.updatedPasswordForToken)
+    }
 }
+
 

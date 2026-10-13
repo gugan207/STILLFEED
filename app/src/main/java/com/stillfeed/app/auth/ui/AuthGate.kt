@@ -89,6 +89,12 @@ fun AuthGate(
                         onNavigateToSignIn = { viewModel.navigateToSignIn() }
                     )
                 }
+                AuthScreenMode.RESET_PASSWORD -> {
+                    ResetPasswordScreen(
+                        viewModel = viewModel,
+                        onNavigateToSignIn = { viewModel.navigateToSignIn() }
+                    )
+                }
             }
         }
     }
