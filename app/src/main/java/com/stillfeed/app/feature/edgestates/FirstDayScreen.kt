@@ -174,12 +174,10 @@ fun FirstDayEmptyStateCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 // Honest numeric representation:
-                // If verified zero count: "0"
-                // If count is pending interception: "—" (while displaying monitored time truthfully)
+                // Show "0" only when a reliable source confirms zero Reels.
+                // When Reel-count tracking is unavailable, display "—".
                 val heroNumber = if (uiState.isReelsCountAvailable && uiState.todayReelsWatched != null) {
                     "${uiState.todayReelsWatched}"
-                } else if (uiState.todayMonitoredMinutes == 0) {
-                    "0"
                 } else {
                     "—"
                 }
@@ -192,11 +190,14 @@ fun FirstDayEmptyStateCard(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                val subtitleText = if (uiState.isReelsCountAvailable) {
-                    "reels watched so far"
-                } else {
-                    val formatted = AwarenessViewModel.formatMinutes(uiState.todayMonitoredMinutes)
-                    "reels watched so far · $formatted monitored app time"
+                val subtitleText = when {
+                    uiState.isReelsCountAvailable -> "reels watched so far"
+                    !uiState.isUsageAccessGranted -> "reels watched so far · Usage access needed to monitor time"
+                    !uiState.isUsageDataAvailable || uiState.todayMonitoredMinutes == null -> "reels watched so far · Monitored time unavailable"
+                    else -> {
+                        val formatted = AwarenessViewModel.formatMinutes(uiState.todayMonitoredMinutes)
+                        "reels watched so far · $formatted monitored app time"
+                    }
                 }
 
                 Text(

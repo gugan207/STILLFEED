@@ -26,10 +26,12 @@ import com.stillfeed.app.core.ui.components.StillfeedCard
 import com.stillfeed.app.core.ui.components.StillfeedNavDestination
 import com.stillfeed.app.core.ui.components.StillfeedPrimaryButton
 import com.stillfeed.app.core.ui.components.StillfeedScreenHeader
+import com.stillfeed.app.core.ui.theme.StillfeedBlushCoral
 import com.stillfeed.app.core.ui.theme.StillfeedSageGreen
 import com.stillfeed.app.core.ui.theme.StillfeedTheme
 import com.stillfeed.app.feature.awareness.AwarenessViewModel
 import com.stillfeed.app.feature.edgestates.model.OfflineUiState
+import com.stillfeed.app.feature.edgestates.model.ProtectionRuntimeStatus
 
 /**
  * Screen 17 — No Internet / Offline State (Figma Node 70:241).
@@ -133,12 +135,16 @@ fun OfflineContent(
 
             // 3. OFFLINE STATUS CARD (Figma Node 70:241)
             StillfeedCard {
-                // Honest label: STILL PROTECTED only if local permissions are active
-                val protectedLabel = if (uiState.isLocallyProtected) "STILL PROTECTED" else "PROTECTION PAUSED"
-                val labelColor = if (uiState.isLocallyProtected) StillfeedSageGreen else StillfeedTheme.colors.statusInactiveText
+                // Honest label: STILL PROTECTED only if runtime active; truthful unverified / paused status otherwise
+                val labelColor = when (uiState.protectionStatus) {
+                    ProtectionRuntimeStatus.PROTECTED -> StillfeedSageGreen
+                    ProtectionRuntimeStatus.PERMISSIONS_ENABLED_STATUS_UNVERIFIED -> StillfeedTheme.colors.textSecondary
+                    ProtectionRuntimeStatus.PROTECTION_DISABLED,
+                    ProtectionRuntimeStatus.PERMISSIONS_MISSING -> StillfeedBlushCoral
+                }
 
                 Text(
-                    text = protectedLabel,
+                    text = uiState.statusLabel,
                     style = StillfeedTheme.typography.label,
                     color = labelColor
                 )

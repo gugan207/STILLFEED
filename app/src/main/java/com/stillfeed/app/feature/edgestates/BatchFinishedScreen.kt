@@ -186,7 +186,8 @@ fun BatchFinishedContent(
             // 4. CALLS TO ACTION
             StillfeedPrimaryButton(
                 text = "Choose a reset",
-                onClick = onChooseReset
+                onClick = onChooseReset,
+                enabled = uiState.isBatchExpired
             )
 
             Spacer(modifier = Modifier.height(StillfeedTheme.spacing.md))

@@ -1,9 +1,12 @@
 package com.stillfeed.app.feature.edgestates
 
+import com.stillfeed.app.domain.model.ProtectionState
 import com.stillfeed.app.domain.model.UsageEvent
 import com.stillfeed.app.domain.model.UsageEventType
+import com.stillfeed.app.domain.repository.ProtectionStateRepository
 import com.stillfeed.app.domain.repository.UsageRepository
 import com.stillfeed.app.feature.edgestates.connectivity.NetworkConnectivityObserver
+import com.stillfeed.app.feature.edgestates.model.ProtectionRuntimeStatus
 import com.stillfeed.app.protection.permission.AccessibilityPermissionChecker
 import com.stillfeed.app.usage.aggregation.UsageAggregator
 import com.stillfeed.app.usage.analysis.UsageSessionAnalyzer
@@ -39,6 +42,7 @@ class EdgeStateScreensTest {
     private lateinit var fakeUsageStatsSource: FakeUsageStatsDataSource
     private lateinit var fakeNetworkObserver: FakeNetworkConnectivityObserver
     private lateinit var fakeUsageRepository: FakeUsageRepository
+    private lateinit var fakeProtectionStateRepository: FakeProtectionStateRepository
     private lateinit var usageAggregator: UsageAggregator
 
     @Before
@@ -48,6 +52,7 @@ class EdgeStateScreensTest {
         fakeUsageStatsSource = FakeUsageStatsDataSource(hasPermission = true)
         fakeNetworkObserver = FakeNetworkConnectivityObserver(isOnline = true)
         fakeUsageRepository = FakeUsageRepository()
+        fakeProtectionStateRepository = FakeProtectionStateRepository(enabled = true)
         usageAggregator = UsageAggregator(fakeUsageRepository)
     }
 
@@ -57,8 +62,44 @@ class EdgeStateScreensTest {
     }
 
     // =========================================================================
-    // Screen 15: Batch Finished Tests
+    // Screen 15: Batch Finished Tests (Gated State & Metric Truth)
     // =========================================================================
+
+    @Test
+    fun batchFinished_defaultsToNotExpiredBeforeVerifiedEvent() = runTest(testDispatcher) {
+        val viewModel = BatchFinishedViewModel(
+            usageAggregator = usageAggregator,
+            initialDailyAllowanceReels = 30
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse("Batch must not be marked expired before verified event", state.isBatchExpired)
+        assertEquals("No batch has ended.", state.headline)
+        assertEquals("A batch completion state appears here once a verified unlock session expires.", state.body)
+        assertNull("Watched reels number must be null when tracking unintercepted", state.todayReelsWatched)
+    }
+
+    @Test
+    fun batchFinished_marksExpiredOnlyAfterVerifiedExpirationEventSupplied() = runTest(testDispatcher) {
+        val viewModel = BatchFinishedViewModel(
+            usageAggregator = usageAggregator,
+            initialDailyAllowanceReels = 30
+        )
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isBatchExpired)
+
+        // Verified expiration event from Step 19
+        viewModel.onBatchExpired(unlockedReels = 20, durationMinutes = 15)
+
+        val state = viewModel.uiState.value
+        assertTrue("Batch must be marked expired after verified event", state.isBatchExpired)
+        assertEquals("That batch is done.", state.headline)
+        assertEquals("Your unlocked batch is done. Take a reset if you want another small batch.", state.body)
+        assertEquals(20, state.batchUnlockedReelsCount)
+        assertEquals(15, state.batchDurationMinutes)
+    }
 
     @Test
     fun batchFinished_whenReelCountUnavailable_displaysHonestFallback() = runTest(testDispatcher) {
@@ -66,13 +107,16 @@ class EdgeStateScreensTest {
             usageAggregator = usageAggregator,
             initialDailyAllowanceReels = 30,
             initialBatchReels = null,
-            initialBatchDurationMinutes = 15
+            initialBatchDurationMinutes = 15,
+            initialIsExpired = true
         )
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
+        assertTrue(state.isBatchExpired)
         assertFalse("Reel counts must not be claimed as verified", state.isReelsCountAvailable)
         assertNull("Watched reels number must be null when tracking unintercepted", state.todayReelsWatched)
+        assertEquals("That batch is done.", state.headline)
         assertEquals("Your unlocked batch is done. Take a reset if you want another small batch.", state.body)
         assertEquals(30, state.dailyAllowanceReels)
     }
@@ -83,7 +127,8 @@ class EdgeStateScreensTest {
             usageAggregator = usageAggregator,
             initialDailyAllowanceReels = 40,
             initialBatchReels = 20,
-            initialBatchDurationMinutes = 20
+            initialBatchDurationMinutes = 20,
+            initialIsExpired = true
         )
         advanceUntilIdle()
 
@@ -92,19 +137,6 @@ class EdgeStateScreensTest {
         assertEquals(40, state.dailyAllowanceReels)
         assertEquals(20, state.batchUnlockedReelsCount)
         assertEquals(20, state.batchDurationMinutes)
-    }
-
-    @Test
-    fun batchFinished_updateExpiredBatch_reflectsHookCorrectly() = runTest(testDispatcher) {
-        val viewModel = BatchFinishedViewModel(
-            usageAggregator = usageAggregator,
-            initialDailyAllowanceReels = 30
-        )
-        advanceUntilIdle()
-
-        viewModel.updateExpiredBatch(unlockedReels = 15, durationMinutes = 15)
-        assertEquals(15, viewModel.uiState.value.batchUnlockedReelsCount)
-        assertEquals(15, viewModel.uiState.value.batchDurationMinutes)
     }
 
     // =========================================================================
@@ -147,32 +179,107 @@ class EdgeStateScreensTest {
     }
 
     // =========================================================================
-    // Screen 17: No Internet / Offline Tests
+    // Screen 17: No Internet / Offline Tests (Truthful Runtime Protection)
     // =========================================================================
 
     @Test
-    fun offline_localProtectionStaysActiveWhenDeviceIsOffline() = runTest(testDispatcher) {
-        // Device is offline
+    fun offline_whenPermissionsGrantedAndServiceActive_reportsProtected() = runTest(testDispatcher) {
         fakeNetworkObserver.setOnline(false)
-        // But local permissions are intact
         fakeAccessibilityChecker.granted = true
         fakeUsageStatsSource.hasPermission = true
+        fakeProtectionStateRepository.enabled = true
 
         val viewModel = OfflineViewModel(
             networkConnectivityObserver = fakeNetworkObserver,
             accessibilityPermissionChecker = fakeAccessibilityChecker,
             usageStatsDataSource = fakeUsageStatsSource,
+            protectionStateRepository = fakeProtectionStateRepository,
+            isServiceRunningProvider = { true },
             usageAggregator = usageAggregator
         )
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertFalse("Device is reported offline", state.isOnline)
-        assertTrue("Local protection remains verified and intact on-device", state.isLocallyProtected)
+        assertFalse(state.isOnline)
+        assertEquals(ProtectionRuntimeStatus.PROTECTED, state.protectionStatus)
+        assertTrue("Claims protected only when permissions, toggle, and active service verified", state.isLocallyProtected)
+        assertEquals("STILL PROTECTED · On-device engine active", state.statusLabel)
     }
 
     @Test
-    fun offline_doesNotClaimProtectionIfLocalPermissionsAreMissing() = runTest(testDispatcher) {
+    fun offline_whenPermissionsGrantedAndServiceUnavailable_reportsStatusUnverified() = runTest(testDispatcher) {
+        fakeNetworkObserver.setOnline(false)
+        fakeAccessibilityChecker.granted = true
+        fakeUsageStatsSource.hasPermission = true
+        fakeProtectionStateRepository.enabled = true
+
+        // Runtime service status is unknown/unverified (provider is null)
+        val viewModel = OfflineViewModel(
+            networkConnectivityObserver = fakeNetworkObserver,
+            accessibilityPermissionChecker = fakeAccessibilityChecker,
+            usageStatsDataSource = fakeUsageStatsSource,
+            protectionStateRepository = fakeProtectionStateRepository,
+            isServiceRunningProvider = null,
+            usageAggregator = usageAggregator
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isOnline)
+        assertEquals(ProtectionRuntimeStatus.PERMISSIONS_ENABLED_STATUS_UNVERIFIED, state.protectionStatus)
+        assertFalse("Must never claim STILL PROTECTED when runtime status is unverified", state.isLocallyProtected)
+        assertEquals("Required permissions enabled; protection status unverified.", state.statusLabel)
+    }
+
+    @Test
+    fun offline_whenServiceStopped_reportsProtectionPaused() = runTest(testDispatcher) {
+        fakeNetworkObserver.setOnline(false)
+        fakeAccessibilityChecker.granted = true
+        fakeUsageStatsSource.hasPermission = true
+        fakeProtectionStateRepository.enabled = true
+
+        // Service explicitly stopped
+        val viewModel = OfflineViewModel(
+            networkConnectivityObserver = fakeNetworkObserver,
+            accessibilityPermissionChecker = fakeAccessibilityChecker,
+            usageStatsDataSource = fakeUsageStatsSource,
+            protectionStateRepository = fakeProtectionStateRepository,
+            isServiceRunningProvider = { false },
+            usageAggregator = usageAggregator
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLocallyProtected)
+        assertEquals(ProtectionRuntimeStatus.PROTECTION_DISABLED, state.protectionStatus)
+        assertEquals("PROTECTION PAUSED · Accessibility service is stopped", state.statusLabel)
+    }
+
+    @Test
+    fun offline_whenProtectionDisabled_reportsProtectionPaused() = runTest(testDispatcher) {
+        fakeNetworkObserver.setOnline(false)
+        fakeAccessibilityChecker.granted = true
+        fakeUsageStatsSource.hasPermission = true
+        fakeProtectionStateRepository.enabled = false // Protection toggled off by user
+
+        val viewModel = OfflineViewModel(
+            networkConnectivityObserver = fakeNetworkObserver,
+            accessibilityPermissionChecker = fakeAccessibilityChecker,
+            usageStatsDataSource = fakeUsageStatsSource,
+            protectionStateRepository = fakeProtectionStateRepository,
+            isServiceRunningProvider = { true },
+            usageAggregator = usageAggregator
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLocallyProtected)
+        assertEquals(ProtectionRuntimeStatus.PROTECTION_DISABLED, state.protectionStatus)
+        assertEquals("PROTECTION PAUSED · Protection is turned off", state.statusLabel)
+    }
+
+    @Test
+    fun offline_whenPermissionsMissing_reportsProtectionPaused() = runTest(testDispatcher) {
         fakeNetworkObserver.setOnline(false)
         fakeAccessibilityChecker.granted = false // Permission missing
 
@@ -180,13 +287,15 @@ class EdgeStateScreensTest {
             networkConnectivityObserver = fakeNetworkObserver,
             accessibilityPermissionChecker = fakeAccessibilityChecker,
             usageStatsDataSource = fakeUsageStatsSource,
+            protectionStateRepository = fakeProtectionStateRepository,
             usageAggregator = usageAggregator
         )
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertFalse("Device is offline", state.isOnline)
-        assertFalse("Cannot claim protection is active when local accessibility is missing", state.isLocallyProtected)
+        assertFalse(state.isLocallyProtected)
+        assertEquals(ProtectionRuntimeStatus.PERMISSIONS_MISSING, state.protectionStatus)
+        assertEquals("PROTECTION PAUSED · Required permissions missing", state.statusLabel)
     }
 
     @Test
@@ -196,6 +305,8 @@ class EdgeStateScreensTest {
             networkConnectivityObserver = fakeNetworkObserver,
             accessibilityPermissionChecker = fakeAccessibilityChecker,
             usageStatsDataSource = fakeUsageStatsSource,
+            protectionStateRepository = fakeProtectionStateRepository,
+            isServiceRunningProvider = { true },
             usageAggregator = usageAggregator
         )
         advanceUntilIdle()
@@ -213,11 +324,13 @@ class EdgeStateScreensTest {
     }
 
     // =========================================================================
-    // Screen 18: First Day / Empty State Tests
+    // Screen 18: First Day / Empty State Tests (Metric Truth & Data Gating)
     // =========================================================================
 
     @Test
-    fun firstDay_whenNoUsageExists_flagsFirstDayCorrectly() = runTest(testDispatcher) {
+    fun firstDay_whenUsagePermissionMissing_marksUsageUnavailableAndNullReelCount() = runTest(testDispatcher) {
+        fakeUsageStatsSource.hasPermission = false
+
         val viewModel = FirstDayViewModel(
             usageAggregator = usageAggregator,
             usageStatsDataSource = fakeUsageStatsSource
@@ -226,12 +339,50 @@ class EdgeStateScreensTest {
 
         val state = viewModel.uiState.value
         assertTrue(state.isFirstDay)
-        assertEquals(0, state.todayMonitoredMinutes)
-        assertEquals(0, state.todayReelsWatched)
+        assertFalse(state.isUsageAccessGranted)
+        assertFalse(state.isUsageDataAvailable)
+        assertNull("Monitored minutes must be null when permission is missing", state.todayMonitoredMinutes)
+        assertNull("Reel count must not be assumed zero when data is unavailable", state.todayReelsWatched)
     }
 
     @Test
-    fun firstDay_whenUsageAccumulates_transitionsGracefully() = runTest(testDispatcher) {
+    fun firstDay_whenUsageAggregatorUnavailable_marksUsageUnavailableAndNullReelCount() = runTest(testDispatcher) {
+        fakeUsageStatsSource.hasPermission = true
+
+        val viewModel = FirstDayViewModel(
+            usageAggregator = null,
+            usageStatsDataSource = fakeUsageStatsSource
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isFirstDay)
+        assertTrue(state.isUsageAccessGranted)
+        assertFalse(state.isUsageDataAvailable)
+        assertNull("Monitored minutes must be null when aggregation unavailable", state.todayMonitoredMinutes)
+        assertNull("Reel count must remain null", state.todayReelsWatched)
+    }
+
+    @Test
+    fun firstDay_whenUsageIsVerifiedZero_showsZeroMinutesAndNullReelCount() = runTest(testDispatcher) {
+        fakeUsageStatsSource.hasPermission = true
+
+        val viewModel = FirstDayViewModel(
+            usageAggregator = usageAggregator,
+            usageStatsDataSource = fakeUsageStatsSource
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isFirstDay)
+        assertTrue(state.isUsageAccessGranted)
+        assertTrue(state.isUsageDataAvailable)
+        assertEquals(0, state.todayMonitoredMinutes)
+        assertNull("Reels count must NOT be converted from zero monitored minutes", state.todayReelsWatched)
+    }
+
+    @Test
+    fun firstDay_whenUsageAccumulates_transitionsGracefullyWithMonitoredMinutesAndNullReelCount() = runTest(testDispatcher) {
         fakeUsageRepository.recordEvent(
             UsageEvent(
                 id = "ev_today",
@@ -255,6 +406,19 @@ class EdgeStateScreensTest {
         assertFalse(state.isReelsCountAvailable)
         assertNull(state.todayReelsWatched)
     }
+
+    @Test
+    fun firstDay_neverConvertsMonitoredMinutesIntoReelsWatched() = runTest(testDispatcher) {
+        val viewModel = FirstDayViewModel(
+            usageAggregator = usageAggregator,
+            usageStatsDataSource = fakeUsageStatsSource
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        // Even when todayMonitoredMinutes is 0, todayReelsWatched remains strictly null
+        assertNull(state.todayReelsWatched)
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -268,6 +432,13 @@ private class FakeAccessibilityPermissionChecker(var granted: Boolean = true) : 
 private class FakeUsageStatsDataSource(var hasPermission: Boolean = true) : UsageStatsDataSource {
     override fun hasUsageStatsPermission(): Boolean = hasPermission
     override fun queryTimelineEvents(startTimeMillis: Long, endTimeMillis: Long): List<RawUsageTimelineEvent> = emptyList()
+}
+
+private class FakeProtectionStateRepository(var enabled: Boolean = true) : ProtectionStateRepository {
+    override fun observeProtectionState(): Flow<ProtectionState> = flowOf(ProtectionState(enabled))
+    override suspend fun getProtectionState(): ProtectionState = ProtectionState(enabled)
+    override suspend fun setProtectionEnabled(enabled: Boolean) { this.enabled = enabled }
+    override suspend fun clearProtectionState() { enabled = false }
 }
 
 private class FakeNetworkConnectivityObserver(private var isOnline: Boolean = true) : NetworkConnectivityObserver {
