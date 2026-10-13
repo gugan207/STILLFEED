@@ -96,12 +96,13 @@ When signing up with `guganthangaraj7@gmail.com` (the allowed recipient):
      }
      ```
      This prevents misleading navigation to `VerifyCodeScreen` and clearly prompts the user to log in.
-   - Enhanced SMTP 550 / Resend error handling in `mapToAuthError()` to present clear messages when test-mode sender restrictions are encountered.
+   - Enhanced error handling in `mapToAuthError()` to detect both SMTP 550 and GoTrue's HTTP 500 `"Error sending confirmation mail"` / `"confirmation email"`, presenting a clear, diagnostic explanation of Resend's test mode restrictions rather than a generic failure message.
 
 ### B. Unit & Integration Test Coverage
 1. Added unit test cases to [ProductionAuthRepositoryTest.kt](file:///d:/SKILLFEED/app/src/test/java/com/stillfeed/app/data/auth/ProductionAuthRepositoryTest.kt):
    - `signUp with existing confirmed user returns AccountAlreadyExists and does not require confirmation`
    - `signUp with Resend SMTP 550 error returns ServiceUnavailable with descriptive message`
+   - `signUp when GoTrue returns Error sending confirmation mail maps to helpful delivery error message`
 2. Updated [InMemoryRemoteTestDoubles.kt](file:///d:/SKILLFEED/app/src/test/java/com/stillfeed/app/data/remote/InMemoryRemoteTestDoubles.kt) to simulate both conditions.
 
 ---
@@ -141,9 +142,9 @@ To enable OTP delivery to **any** arbitrary Gmail or external email address:
 
 | Quality Gate | Requirement | Execution Result | Status |
 | :--- | :--- | :--- | :--- |
-| `.\gradlew.bat testDebugUnitTest` | Full unit test suite | **284 passed, 0 failed, 0 skipped** | **PASS** |
-| `.\gradlew.bat assembleDebug` | Debug APK compilation | **BUILD SUCCESSFUL in 38s** | **PASS** |
-| `.\gradlew.bat lintDebug` | Static code analysis | **BUILD SUCCESSFUL in 2m 3s (0 errors)** | **PASS** |
+| `.\gradlew.bat testDebugUnitTest` | Full unit test suite | **285 passed, 0 failed, 0 skipped** | **PASS** |
+| `.\gradlew.bat assembleDebug` | Debug APK compilation | **BUILD SUCCESSFUL in 39s** | **PASS** |
+| `.\gradlew.bat lintDebug` | Static code analysis | **BUILD SUCCESSFUL (0 errors)** | **PASS** |
 | Physical Device Install | Non-destructive reinstall (`-r`) | **Streamed Install Success (Data Preserved)** | **PASS** |
 | Email OTP Verification | Real 6-digit numeric OTP | **PASS** (Delivery & logic verified) | **PASS** |
 | Post-Login Settings Nav | Stay on Settings without snapping | **PASS** (Resolved) | **PASS** |
@@ -154,7 +155,7 @@ To enable OTP delivery to **any** arbitrary Gmail or external email address:
 
 ## 7. Summary & Next Step Boundary
 
-- **Email OTP Delivery:** **PASS** — Root cause definitively diagnosed (Resend free-tier sandbox restriction + repeated signup false-positive navigation). Client remediated, test suite expanded (284 tests passing), and real OTP delivery verified against Supabase and Resend.
-- **Physical Device:** Updated debug APK installed on Motorola Edge 60 Fusion (`ZA222WTN4H`).
+- **Email OTP Delivery:** **PASS** — Root causes diagnosed and fixed (Resend free-tier sandbox restriction + repeated signup false-positive navigation + error mapping for `Error sending confirmation mail`). Client remediated, test suite expanded (285 tests passing), and real OTP delivery verified against Supabase and Resend.
+- **Physical Device:** Updated debug APK (`8c9f5e2`) installed on Motorola Edge 60 Fusion (`ZA222WTN4H`).
 - **Google Sign-In:** Awaiting user manual test on device with updated Client ID.
 - **Next Step:** **STOP before Step 16.**
