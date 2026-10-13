@@ -212,9 +212,8 @@ class InterventionViewModelTest {
     }
 
     @Test
-    fun loadTodayReelCount_ignoresBlockedAttempts_andKeepsCountNull() = runTest {
+    fun loadTodayReelCount_blockedAttempts_doNotIncreaseWatchedReelCount() = runTest {
         val fakeUsage = FakeUsageRepository()
-        // Record 5 blocked attempt events (isBlocked = true)
         val now = System.currentTimeMillis()
         for (i in 1..5) {
             fakeUsage.recordEvent(
@@ -236,56 +235,34 @@ class InterventionViewModelTest {
         )
         advanceUntilIdle()
 
-        // Requirement 1: isBlocked == true measures blocked attempts rather than watched Reels.
-        // It must NOT count blocked attempts as watched reels!
-        assertNull("Blocked attempts must not masquerade as watched reels", vm.uiState.value.todayReelsCount)
+        // Blocked attempts measure interventions, NOT watched reels. Must remain null!
+        assertNull("Blocked attempts must not increase watched-Reel count", vm.uiState.value.todayReelsCount)
     }
 
     @Test
-    fun loadTodayReelCount_countsOnlyWatchedReels_withinLocalCalendarDay() = runTest {
+    fun loadTodayReelCount_grantingBatchUnlock_doesNotIncreaseWatchedReelCount() = runTest {
         val fakeUsage = FakeUsageRepository()
         val now = System.currentTimeMillis()
 
-        // 1. Two genuine watched reels today (eventType = UNLOCKED, isBlocked = false)
-        fakeUsage.recordEvent(
-            com.stillfeed.app.domain.model.UsageEvent(
-                id = "watched_1",
-                timestampMillis = now - 60_000L,
-                packageName = "com.instagram.android",
-                surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
-                eventType = com.stillfeed.app.domain.model.UsageEventType.UNLOCKED,
-                isBlocked = false,
-                isUnlocked = true
-            )
-        )
-        fakeUsage.recordEvent(
-            com.stillfeed.app.domain.model.UsageEvent(
-                id = "watched_2",
-                timestampMillis = now - 30_000L,
-                packageName = "com.instagram.android",
-                surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
-                eventType = com.stillfeed.app.domain.model.UsageEventType.UNLOCKED,
-                isBlocked = false,
-                isUnlocked = true
-            )
+        // 1. Grant a batch unlock session
+        unlockRepository.createUnlockSession(
+            packageName = "com.instagram.android",
+            batchAllowance = 10,
+            activityType = "FLIP_PHONE",
+            verifiedActivityCompletion = true
         )
 
-        // 2. One watched reel yesterday (prior to local midnight)
-        val localMidnight = java.util.Calendar.getInstance().apply {
-            set(java.util.Calendar.HOUR_OF_DAY, 0)
-            set(java.util.Calendar.MINUTE, 0)
-            set(java.util.Calendar.SECOND, 0)
-            set(java.util.Calendar.MILLISECOND, 0)
-        }.timeInMillis
+        // 2. Even if an unlock grant event exists in the store (eventType == UNLOCKED or isUnlocked = true)
         fakeUsage.recordEvent(
             com.stillfeed.app.domain.model.UsageEvent(
-                id = "watched_yesterday",
-                timestampMillis = localMidnight - 3600_000L,
+                id = "unlock_grant_1",
+                timestampMillis = now,
                 packageName = "com.instagram.android",
                 surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
                 eventType = com.stillfeed.app.domain.model.UsageEventType.UNLOCKED,
                 isBlocked = false,
-                isUnlocked = true
+                isUnlocked = true,
+                metadata = "Batch unlock granted: 10 reels"
             )
         )
 
@@ -296,7 +273,109 @@ class InterventionViewModelTest {
         )
         advanceUntilIdle()
 
-        // Only the 2 reels watched today in the local calendar day are counted
+        // Granting a batch unlock is NOT proof an individual Reel was watched! Must remain null!
+        assertNull("Granting a batch unlock must not increase watched-Reel count", vm.uiState.value.todayReelsCount)
+    }
+
+    @Test
+    fun loadTodayReelCount_monitoredAppMinutes_doNotIncreaseWatchedReelCount() = runTest {
+        val fakeUsage = FakeUsageRepository()
+        val now = System.currentTimeMillis()
+
+        // App session duration (UsageStatsManager foreground session)
+        fakeUsage.recordEvent(
+            com.stillfeed.app.domain.model.UsageEvent(
+                id = "session_1",
+                timestampMillis = now,
+                packageName = "com.instagram.android",
+                surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
+                eventType = com.stillfeed.app.domain.model.UsageEventType.SESSION_END,
+                durationMillis = 600_000L, // 10 minutes
+                isBlocked = false,
+                metadata = "Foreground session"
+            )
+        )
+
+        val vm = InterventionViewModel(
+            unlockSessionRepository = unlockRepository,
+            usageRepository = fakeUsage,
+            initialPackage = "com.instagram.android"
+        )
+        advanceUntilIdle()
+
+        // Monitored app minutes do not prove individual Reel count!
+        assertNull("Monitored app minutes must not increase watched-Reel count", vm.uiState.value.todayReelsCount)
+    }
+
+    @Test
+    fun loadTodayReelCount_countsOnlyVerifiedIndividualReelConsumption_withinLocalCalendarDay() = runTest {
+        val fakeUsage = FakeUsageRepository()
+        val now = System.currentTimeMillis()
+
+        // 1. Two verified individual Reel consumption events today
+        fakeUsage.recordEvent(
+            com.stillfeed.app.domain.model.UsageEvent(
+                id = "reel_event_1",
+                timestampMillis = now - 60_000L,
+                packageName = "com.instagram.android",
+                surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
+                eventType = com.stillfeed.app.domain.model.UsageEventType.CONTENT_DETECTED,
+                isBlocked = false,
+                metadata = InterventionViewModel.VERIFIED_REEL_CONSUMPTION_METADATA
+            )
+        )
+        fakeUsage.recordEvent(
+            com.stillfeed.app.domain.model.UsageEvent(
+                id = "reel_event_2",
+                timestampMillis = now - 30_000L,
+                packageName = "com.instagram.android",
+                surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
+                eventType = com.stillfeed.app.domain.model.UsageEventType.CONTENT_DETECTED,
+                isBlocked = false,
+                metadata = InterventionViewModel.VERIFIED_REEL_CONSUMPTION_METADATA
+            )
+        )
+
+        // Duplicate event with same ID (deduplication check)
+        fakeUsage.recordEvent(
+            com.stillfeed.app.domain.model.UsageEvent(
+                id = "reel_event_2",
+                timestampMillis = now - 25_000L,
+                packageName = "com.instagram.android",
+                surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
+                eventType = com.stillfeed.app.domain.model.UsageEventType.CONTENT_DETECTED,
+                isBlocked = false,
+                metadata = InterventionViewModel.VERIFIED_REEL_CONSUMPTION_METADATA
+            )
+        )
+
+        // 2. One event from yesterday (prior to local midnight)
+        val localMidnight = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        fakeUsage.recordEvent(
+            com.stillfeed.app.domain.model.UsageEvent(
+                id = "reel_event_yesterday",
+                timestampMillis = localMidnight - 3600_000L,
+                packageName = "com.instagram.android",
+                surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
+                eventType = com.stillfeed.app.domain.model.UsageEventType.CONTENT_DETECTED,
+                isBlocked = false,
+                metadata = InterventionViewModel.VERIFIED_REEL_CONSUMPTION_METADATA
+            )
+        )
+
+        val vm = InterventionViewModel(
+            unlockSessionRepository = unlockRepository,
+            usageRepository = fakeUsage,
+            initialPackage = "com.instagram.android"
+        )
+        advanceUntilIdle()
+
+        // Exactly 2 distinct verified events from today's local calendar day are counted
         assertEquals(2, vm.uiState.value.todayReelsCount)
     }
 
@@ -312,4 +391,5 @@ class InterventionViewModelTest {
         override suspend fun clearUsageHistory() { events.clear() }
     }
 }
+
 

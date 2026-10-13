@@ -84,7 +84,7 @@ class InterventionViewModel(
                     _uiState.update { it.copy(todayReelsCount = null) }
                     return@launch
                 }
-                // Requirement 1: Use user's local calendar day rather than UTC midnight
+                // Use user's local calendar day rather than UTC midnight
                 val localCalendar = java.util.Calendar.getInstance().apply {
                     set(java.util.Calendar.HOUR_OF_DAY, 0)
                     set(java.util.Calendar.MINUTE, 0)
@@ -95,14 +95,21 @@ class InterventionViewModel(
                 val now = System.currentTimeMillis()
 
                 val events = usageRepository.getEventsInRange(startOfLocalDay, now)
-                // Requirement 1: Only count genuine watched-Reel events (e.g. UNLOCKED),
-                // NEVER count isBlocked == true (which measures blocked attempts).
-                val verifiedWatchedEvents = events.filter { it.isUnlocked || it.eventType == com.stillfeed.app.domain.model.UsageEventType.UNLOCKED }
 
-                if (verifiedWatchedEvents.isNotEmpty()) {
-                    _uiState.update { it.copy(todayReelsCount = verifiedWatchedEvents.size) }
+                // Audit: STEP 19 Counting Contract
+                // 1. Blocked attempts (isBlocked == true, BLOCKED) measure interventions, NOT watched reels.
+                // 2. Monitored app sessions (SESSION_END) measure foreground minutes, NOT individual reels.
+                // 3. Batch grants or unlock states (UNLOCKED, isUnlocked) measure permissions, NOT watched reels.
+                // 4. An event can ONLY be counted if its model and producer explicitly establish verified individual Reel consumption.
+                val verifiedIndividualReelEvents = events
+                    .filter { isVerifiedIndividualReelConsumption(it) }
+                    .distinctBy { it.id }
+
+                if (verifiedIndividualReelEvents.isNotEmpty()) {
+                    _uiState.update { it.copy(todayReelsCount = verifiedIndividualReelEvents.size) }
                 } else {
-                    // When reliable watched-Reel tracking data is unavailable, keep null
+                    // When reliable individual Reel-consumption tracking is unavailable (Step 19),
+                    // keep count null and hide numeric badge / show designed clean reset state.
                     _uiState.update { it.copy(todayReelsCount = null) }
                 }
             } catch (_: Exception) {
@@ -110,6 +117,25 @@ class InterventionViewModel(
             }
         }
     }
+
+    /**
+     * Determines whether a [UsageEvent] explicitly represents an individual watched Reel.
+     *
+     * Audit Guarantees:
+     * - Returns false for blocked attempts (isBlocked == true, BLOCKED).
+     * - Returns false for session duration / app usage minutes (SESSION_END, SESSION_START).
+     * - Returns false for unlock grants or permission changes (UNLOCKED, isUnlocked).
+     * - Only returns true if an established producer explicitly marks the event as an individual Reel consumption.
+     */
+    private fun isVerifiedIndividualReelConsumption(event: com.stillfeed.app.domain.model.UsageEvent): Boolean {
+        if (event.isBlocked || event.eventType == com.stillfeed.app.domain.model.UsageEventType.BLOCKED) return false
+        if (event.eventType == com.stillfeed.app.domain.model.UsageEventType.SESSION_START ||
+            event.eventType == com.stillfeed.app.domain.model.UsageEventType.SESSION_END) return false
+        if (event.isUnlocked || event.eventType == com.stillfeed.app.domain.model.UsageEventType.UNLOCKED) return false
+
+        return event.metadata == VERIFIED_REEL_CONSUMPTION_METADATA
+    }
+
 
     // ==================== SCREEN 08: BLOCKED REEL ACTIONS ====================
 
@@ -293,6 +319,8 @@ class InterventionViewModel(
     }
 
     companion object {
+        const val VERIFIED_REEL_CONSUMPTION_METADATA = "INDIVIDUAL_REEL_CONSUMED"
+
         fun provideFactory(
             unlockSessionRepository: UnlockSessionRepository,
             usageRepository: UsageRepository?,
