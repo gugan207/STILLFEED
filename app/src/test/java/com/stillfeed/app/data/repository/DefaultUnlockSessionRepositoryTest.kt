@@ -461,4 +461,75 @@ class DefaultUnlockSessionRepositoryTest {
         assertNotNull(updated)
         assertEquals("com.instagram.android", updated?.packageName)
     }
+
+    @Test
+    fun consumeReelAllowance_whenAllowanceReachesZero_populatesExpiredSession_andCanBeCleared() = testScope.runTest {
+        val now = System.currentTimeMillis()
+        val entity = ActiveUnlockSessionEntity(
+            id = "sess_1_reel",
+            packageName = "com.instagram.android",
+            selectedBatchAllowance = 5,
+            remainingBatchAllowance = 1,
+            activityType = "FLIP_PHONE",
+            verifiedActivityCompletion = true,
+            createdAtMillis = now,
+            expiresAtMillis = now + 100_000L,
+            isIndeterminateTracking = false
+        )
+        database.activeUnlockSessionDao().insertOrUpdate(entity)
+
+        val repo = DefaultUnlockSessionRepository(
+            activeUnlockSessionDao = database.activeUnlockSessionDao(),
+            unlockHistoryRepository = unlockHistoryRepository,
+            ioDispatcher = testDispatcher
+        )
+
+        assertNotNull(repo.getActiveUnlock("com.instagram.android"))
+
+        val updated = repo.consumeReelAllowance(
+            packageName = "com.instagram.android",
+            signalKey = "clips_viewer_view_pager",
+            isExplicitTransition = false
+        )
+        assertNotNull(updated)
+        assertEquals(0, updated?.remainingBatchAllowance)
+        assertNull("Session must not be active in getActiveUnlock after reaching 0 allowance", repo.getActiveUnlock("com.instagram.android"))
+
+        val expired = repo.getLatestExpiredSession("com.instagram.android")
+        assertNotNull("Expired session must be recorded", expired)
+        assertEquals("com.instagram.android", expired?.packageName)
+        assertEquals(0, expired?.remainingBatchAllowance)
+
+        repo.clearExpiredSession("com.instagram.android")
+        assertNull("Expired session must be cleared", repo.getLatestExpiredSession("com.instagram.android"))
+    }
+
+    @Test
+    fun getActiveUnlock_whenTimedOut_populatesExpiredSession() = testScope.runTest {
+        val now = System.currentTimeMillis()
+        val past = now - 100_000L
+        val expiredEntity = ActiveUnlockSessionEntity(
+            id = "timeout_sess_1",
+            packageName = "com.timeout.app",
+            selectedBatchAllowance = 10,
+            remainingBatchAllowance = 5,
+            activityType = "BREATHING",
+            verifiedActivityCompletion = true,
+            createdAtMillis = past - 100_000L,
+            expiresAtMillis = past,
+            isIndeterminateTracking = false
+        )
+        database.activeUnlockSessionDao().insertOrUpdate(expiredEntity)
+
+        val repo = DefaultUnlockSessionRepository(
+            activeUnlockSessionDao = database.activeUnlockSessionDao(),
+            unlockHistoryRepository = unlockHistoryRepository,
+            ioDispatcher = testDispatcher
+        )
+
+        assertNull(repo.getActiveUnlock("com.timeout.app"))
+        val expired = repo.getLatestExpiredSession("com.timeout.app")
+        assertNotNull("Timed out session must be tracked as expired", expired)
+        assertEquals("com.timeout.app", expired?.packageName)
+    }
 }

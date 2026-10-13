@@ -48,6 +48,9 @@ class DefaultUnlockSessionRepository(
     // Deduplication tracking: packageName -> (lastSignalKey, lastConsumedTimestamp)
     private val lastConsumedSignals = ConcurrentHashMap<String, Pair<String?, Long>>()
 
+    // Tracks verified expired or exhausted sessions: packageName -> BatchUnlockSession
+    private val expiredSessions = ConcurrentHashMap<String, BatchUnlockSession>()
+
     init {
         restorePersistedSessions()
     }
@@ -65,7 +68,8 @@ class DefaultUnlockSessionRepository(
                 if (session.isValid(now)) {
                     activeSessions[session.packageName] = session
                 } else {
-                    // Clean up stale, expired, or exhausted sessions from disk
+                    // Record expired session and clean up from disk
+                    expiredSessions[session.packageName] = session
                     activeUnlockSessionDao?.deleteSessionByPackageSync(session.packageName)
                 }
             }
@@ -80,6 +84,7 @@ class DefaultUnlockSessionRepository(
         val now = System.currentTimeMillis()
         if (!session.isValid(now)) {
             activeSessions.remove(packageName)
+            expiredSessions[packageName] = session
             sessionsFlow.value = activeSessions.toMap()
             try {
                 activeUnlockSessionDao?.deleteSessionByPackageSync(packageName)
@@ -143,6 +148,7 @@ class DefaultUnlockSessionRepository(
             }
 
             activeSessions[packageName] = newSession
+            expiredSessions.remove(packageName)
             sessionsFlow.value = activeSessions.toMap()
 
             // Requirement 4: Record audit history.
@@ -232,6 +238,7 @@ class DefaultUnlockSessionRepository(
     private suspend fun persistSessionUpdate(session: BatchUnlockSession) {
         if (session.isExhausted) {
             activeSessions.remove(session.packageName)
+            expiredSessions[session.packageName] = session
             try {
                 activeUnlockSessionDao?.deleteSessionByPackage(session.packageName)
             } catch (_: Exception) {
@@ -248,7 +255,10 @@ class DefaultUnlockSessionRepository(
 
     override suspend fun expireUnlock(packageName: String): Unit = withContext(ioDispatcher) {
         mutex.withLock {
-            activeSessions.remove(packageName)
+            val session = activeSessions.remove(packageName)
+            if (session != null) {
+                expiredSessions[packageName] = session
+            }
             lastConsumedSignals.remove(packageName)
             sessionsFlow.value = activeSessions.toMap()
             try {
@@ -268,6 +278,7 @@ class DefaultUnlockSessionRepository(
     override suspend fun clearAll(): Unit = withContext(ioDispatcher) {
         mutex.withLock {
             activeSessions.clear()
+            expiredSessions.clear()
             lastConsumedSignals.clear()
             sessionsFlow.value = emptyMap()
             try {
@@ -277,8 +288,40 @@ class DefaultUnlockSessionRepository(
         }
     }
 
+    override fun getLatestExpiredSession(packageName: String?): BatchUnlockSession? {
+        val now = System.currentTimeMillis()
+        if (packageName != null) {
+            val session = expiredSessions[packageName] ?: return null
+            val isRecent = (now - session.createdAtMillis) < MAX_EXPIRATION_AUDIT_WINDOW_MS
+            return if (isRecent) {
+                session
+            } else {
+                expiredSessions.remove(packageName)
+                null
+            }
+        } else {
+            val candidate = expiredSessions.values.maxByOrNull { it.createdAtMillis } ?: return null
+            val isRecent = (now - candidate.createdAtMillis) < MAX_EXPIRATION_AUDIT_WINDOW_MS
+            return if (isRecent) {
+                candidate
+            } else {
+                expiredSessions.remove(candidate.packageName)
+                null
+            }
+        }
+    }
+
+    override fun clearExpiredSession(packageName: String?) {
+        if (packageName != null) {
+            expiredSessions.remove(packageName)
+        } else {
+            expiredSessions.clear()
+        }
+    }
+
     companion object {
         private const val IDEMPOTENT_WINDOW_MS = 2000L
         private const val MIN_REEL_CONSUMPTION_INTERVAL_MS = 1500L
+        private const val MAX_EXPIRATION_AUDIT_WINDOW_MS = 30 * 60 * 1000L // 30 minutes recency window
     }
 }

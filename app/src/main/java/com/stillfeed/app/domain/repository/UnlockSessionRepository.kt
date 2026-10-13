@@ -49,4 +49,15 @@ interface UnlockSessionRepository {
      * Clears all active unlock sessions (e.g., on sign out or full reset).
      */
     suspend fun clearAll()
+
+    /**
+     * Retrieves the most recently expired or exhausted batch unlock session for [packageName],
+     * or any package if [packageName] is null.
+     */
+    fun getLatestExpiredSession(packageName: String? = null): BatchUnlockSession?
+
+    /**
+     * Clears the recorded expired session for [packageName], or all if [packageName] is null.
+     */
+    fun clearExpiredSession(packageName: String? = null)
 }

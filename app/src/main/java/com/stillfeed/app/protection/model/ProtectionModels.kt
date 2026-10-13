@@ -77,7 +77,10 @@ sealed class ProtectionDecision {
     data class Block(
         val packageName: String,
         val surfaceCategory: SurfaceCategory,
-        val reason: String
+        val reason: String,
+        val isBatchExpired: Boolean = false,
+        val batchAllowance: Int? = null,
+        val batchDurationMinutes: Int? = null
     ) : ProtectionDecision()
 
     /**

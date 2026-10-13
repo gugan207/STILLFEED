@@ -13,6 +13,8 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.stillfeed.app.StillfeedApplication
 import com.stillfeed.app.core.ui.theme.StillfeedTheme
+import com.stillfeed.app.feature.edgestates.BatchFinishedScreen
+import com.stillfeed.app.feature.edgestates.BatchFinishedViewModel
 import com.stillfeed.app.protection.intervention.ui.InterventionStep
 import com.stillfeed.app.protection.intervention.ui.InterventionViewModel
 import com.stillfeed.app.protection.intervention.ui.Screen08BlockedReel
@@ -28,6 +30,7 @@ import com.stillfeed.app.protection.intervention.ui.Screen11UnlockSelection
  * 2. Screen 09 — Reset Activity (Figma 64:7): Choose & execute a pause, walk, movement, or card reset with timer.
  * 3. Screen 10 — Awareness Cards (Figma 64:46): Read authored reflective cards with pause indicator.
  * 4. Screen 11 — Unlock (Figma 64:65): Select 5, 10, 20, or 30 Reels/Shorts batch unlock.
+ * 5. Screen 15 — Batch Finished (Figma 70:198): Informed when an active batch session expires or exhausts.
  *
  * Guarantees:
  * - Single activity prevents duplicate screen stacking.
@@ -51,6 +54,9 @@ class InterventionActivity : ComponentActivity() {
             }
         } ?: InterventionStep.BLOCKED_REEL
 
+        val batchAllowance = intent.getIntExtra(EXTRA_BATCH_ALLOWANCE, 0).takeIf { it > 0 }
+        val batchDurationMinutes = intent.getIntExtra(EXTRA_BATCH_DURATION_MINUTES, 0).takeIf { it > 0 }
+
         val app = application as? StillfeedApplication
 
         setContent {
@@ -62,7 +68,9 @@ class InterventionActivity : ComponentActivity() {
                             usageRepository = it.usageRepository,
                             blockedPackage = blockedPackage,
                             surfaceCategory = surfaceCategory,
-                            initialStep = initialStep
+                            initialStep = initialStep,
+                            initialBatchAllowance = batchAllowance,
+                            initialBatchDurationMinutes = batchDurationMinutes
                         )
                     } ?: throw IllegalStateException("StillfeedApplication must be initialized.")
                 )
@@ -135,6 +143,25 @@ class InterventionActivity : ComponentActivity() {
                                 onConfirmUnlock = { vm.onConfirmUnlock() }
                             )
                         }
+                        InterventionStep.BATCH_FINISHED -> {
+                            val batchFinishedVm: BatchFinishedViewModel = viewModel(
+                                factory = BatchFinishedViewModel.provideFactory(
+                                    usageAggregator = app?.usageAggregator,
+                                    initialDailyAllowanceReels = 30,
+                                    initialBatchReels = uiState.batchUnlockedReelsCount,
+                                    initialBatchDurationMinutes = uiState.batchDurationMinutes,
+                                    initialIsExpired = true
+                                )
+                            )
+                            BatchFinishedScreen(
+                                viewModel = batchFinishedVm,
+                                onChooseReset = { vm.onChooseReset() },
+                                onKeepChatting = { finish() },
+                                onNavigateToHome = { finish() },
+                                onNavigateToInsights = { finish() },
+                                onNavigateToSettings = { finish() }
+                            )
+                        }
                     }
                 }
             }
@@ -145,5 +172,7 @@ class InterventionActivity : ComponentActivity() {
         const val EXTRA_BLOCKED_PACKAGE = "extra_blocked_package"
         const val EXTRA_SURFACE_CATEGORY = "extra_surface_category"
         const val EXTRA_START_STEP = "extra_start_step"
+        const val EXTRA_BATCH_ALLOWANCE = "extra_batch_allowance"
+        const val EXTRA_BATCH_DURATION_MINUTES = "extra_batch_duration_minutes"
     }
 }

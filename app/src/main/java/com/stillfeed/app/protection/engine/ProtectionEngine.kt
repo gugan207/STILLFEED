@@ -140,8 +140,20 @@ class DefaultProtectionEngine(
                     )
                 }
 
-                // Rate-limit database events (e.g. 1 per 2 seconds per package) to avoid flooding Room
                 val now = System.currentTimeMillis()
+
+                // Check if this block was caused by a recently expired or exhausted batch unlock
+                val expiredSession = unlockSessionRepository?.getLatestExpiredSession(context.packageName)
+                val isBatchExpired = expiredSession != null
+                val batchAllowance = expiredSession?.selectedBatchAllowance
+                val batchDurationMins = expiredSession?.let { session ->
+                    ((now - session.createdAtMillis) / 60000L).toInt().coerceAtLeast(1)
+                }
+                if (isBatchExpired) {
+                    unlockSessionRepository?.clearExpiredSession(context.packageName)
+                }
+
+                // Rate-limit database events (e.g. 1 per 2 seconds per package) to avoid flooding Room
                 val isRecentDuplicate = context.packageName == lastBlockedPackage &&
                         (now - lastBlockedTimestamp) < DEBOUNCE_DATABASE_WRITE_MS
 
@@ -153,7 +165,7 @@ class DefaultProtectionEngine(
                         surfaceCategory = classification.surfaceCategory,
                         eventType = UsageEventType.BLOCKED,
                         isBlocked = true,
-                        metadata = classification.matchedSignal
+                        metadata = if (isBatchExpired) "Batch finished ($batchAllowance reels)" else classification.matchedSignal
                     )
                     try {
                         usageRepository.recordEvent(event)
@@ -167,7 +179,14 @@ class DefaultProtectionEngine(
                 return@withContext ProtectionDecision.Block(
                     packageName = context.packageName,
                     surfaceCategory = classification.surfaceCategory,
-                    reason = classification.matchedSignal ?: "Protected short-form surface detected"
+                    reason = if (isBatchExpired) {
+                        "Batch finished (${batchAllowance ?: 0} reels exhausted/expired)"
+                    } else {
+                        classification.matchedSignal ?: "Protected short-form surface detected"
+                    },
+                    isBatchExpired = isBatchExpired,
+                    batchAllowance = batchAllowance,
+                    batchDurationMinutes = batchDurationMins
                 )
             }
 

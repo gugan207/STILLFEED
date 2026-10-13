@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -84,7 +85,9 @@ class ProtectionEngineUnlockIntegrationTest {
 
         val decision = engine.evaluateContext(context)
         assertTrue(decision is ProtectionDecision.Block)
-        assertEquals(SurfaceCategory.REELS, (decision as ProtectionDecision.Block).surfaceCategory)
+        val block = decision as ProtectionDecision.Block
+        assertEquals(SurfaceCategory.REELS, block.surfaceCategory)
+        assertFalse("Unprompted block must not be flagged as batch expired", block.isBatchExpired)
 
         engine.close()
     }
@@ -158,7 +161,7 @@ class ProtectionEngineUnlockIntegrationTest {
     }
 
     @Test
-    fun protectionEnabled_whenUnlockExhausted_blocksReelAgain() = testScope.runTest {
+    fun protectionEnabled_whenUnlockExhausted_blocksReelAgain_andSetsBatchExpired() = testScope.runTest {
         protectionRepo.setProtectionEnabled(true)
         val engine = createEngine(this)
         engine.isProtectionEnabled.first { it }
@@ -182,6 +185,18 @@ class ProtectionEngineUnlockIntegrationTest {
         // Attempt should now BLOCK because session is expired/exhausted
         val decision = engine.evaluateContext(ytContext)
         assertTrue(decision is ProtectionDecision.Block)
+        val block = decision as ProtectionDecision.Block
+        assertTrue("Block after expired session must have isBatchExpired = true", block.isBatchExpired)
+        assertEquals(5, block.batchAllowance)
+
+        // Subsequent evaluation for unrelated package should NOT be marked expired
+        val igContext = AccessibilityWindowContext(
+            packageName = "com.instagram.android",
+            activeViewIds = setOf("com.instagram.android:id/clips_viewer_view_pager")
+        )
+        val igDecision = engine.evaluateContext(igContext)
+        assertTrue(igDecision is ProtectionDecision.Block)
+        assertFalse("Unrelated package without expired session must have isBatchExpired = false", (igDecision as ProtectionDecision.Block).isBatchExpired)
 
         engine.close()
     }

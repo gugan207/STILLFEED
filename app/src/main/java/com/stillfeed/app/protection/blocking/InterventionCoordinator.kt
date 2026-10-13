@@ -3,6 +3,7 @@ package com.stillfeed.app.protection.blocking
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.content.Intent
+import com.stillfeed.app.protection.intervention.ui.InterventionStep
 import com.stillfeed.app.protection.model.ProtectionDecision
 
 /**
@@ -66,6 +67,11 @@ class DefaultInterventionCoordinator(
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                     putExtra(InterventionActivity.EXTRA_BLOCKED_PACKAGE, decision.packageName)
                     putExtra(InterventionActivity.EXTRA_SURFACE_CATEGORY, decision.surfaceCategory.name)
+                    if (decision.isBatchExpired) {
+                        putExtra(InterventionActivity.EXTRA_START_STEP, InterventionStep.BATCH_FINISHED.name)
+                        putExtra(InterventionActivity.EXTRA_BATCH_ALLOWANCE, decision.batchAllowance ?: 0)
+                        putExtra(InterventionActivity.EXTRA_BATCH_DURATION_MINUTES, decision.batchDurationMinutes ?: 0)
+                    }
                 }
                 service.startActivity(intent)
             } catch (_: Exception) {

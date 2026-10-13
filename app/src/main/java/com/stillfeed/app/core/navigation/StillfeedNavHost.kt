@@ -208,6 +208,12 @@ fun StillfeedNavHost(
                             },
                             onNavigateToPermissionDisabled = {
                                 navController.navigate(Screen.PermissionDisabled.route)
+                            },
+                            onNavigateToOffline = {
+                                navController.navigate(Screen.Offline.route)
+                            },
+                            onNavigateToFirstDay = {
+                                navController.navigate(Screen.FirstDay.route)
                             }
                         )
                     } ?: BootstrapScreen()
@@ -277,26 +283,40 @@ fun StillfeedNavHost(
                 }
 
                 composable(route = Screen.BatchFinished.route) {
-                    val batchFinishedVm: BatchFinishedViewModel = viewModel(
-                        factory = BatchFinishedViewModel.provideFactory(
-                            usageAggregator = app?.usageAggregator,
-                            initialDailyAllowanceReels = preferences?.dailyReelsAllowance ?: 30
-                        )
-                    )
-                    BatchFinishedScreen(
-                        viewModel = batchFinishedVm,
-                        onChooseReset = {
-                            navController.navigate(Screen.ResetActivity.route)
-                        },
-                        onKeepChatting = {
+                    val expiredSession = app?.unlockSessionRepository?.getLatestExpiredSession()
+                    if (expiredSession == null) {
+                        // Never open Screen 15 merely because the user visits its route without a verified expired batch
+                        androidx.compose.runtime.LaunchedEffect(Unit) {
                             navController.navigate(Screen.Home.route) {
-                                popUpTo(Screen.Home.route) { inclusive = true }
+                                popUpTo(Screen.BatchFinished.route) { inclusive = true }
                             }
-                        },
-                        onNavigateToHome = { navigateToTab(Screen.Home.route) },
-                        onNavigateToInsights = { navigateToTab(Screen.Insights.route) },
-                        onNavigateToSettings = { navigateToTab(Screen.Settings.route) }
-                    )
+                        }
+                    } else {
+                        val durationMins = ((System.currentTimeMillis() - expiredSession.createdAtMillis) / 60000L).toInt().coerceAtLeast(1)
+                        val batchFinishedVm: BatchFinishedViewModel = viewModel(
+                            factory = BatchFinishedViewModel.provideFactory(
+                                usageAggregator = app?.usageAggregator,
+                                initialDailyAllowanceReels = preferences?.dailyReelsAllowance ?: 30,
+                                initialBatchReels = expiredSession.selectedBatchAllowance,
+                                initialBatchDurationMinutes = durationMins,
+                                initialIsExpired = true
+                            )
+                        )
+                        BatchFinishedScreen(
+                            viewModel = batchFinishedVm,
+                            onChooseReset = {
+                                navController.navigate(Screen.ResetActivity.route)
+                            },
+                            onKeepChatting = {
+                                navController.navigate(Screen.Home.route) {
+                                    popUpTo(Screen.Home.route) { inclusive = true }
+                                }
+                            },
+                            onNavigateToHome = { navigateToTab(Screen.Home.route) },
+                            onNavigateToInsights = { navigateToTab(Screen.Insights.route) },
+                            onNavigateToSettings = { navigateToTab(Screen.Settings.route) }
+                        )
+                    }
                 }
 
                 composable(route = Screen.PermissionDisabled.route) {

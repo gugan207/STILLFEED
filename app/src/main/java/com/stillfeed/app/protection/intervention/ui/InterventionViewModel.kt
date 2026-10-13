@@ -22,7 +22,8 @@ enum class InterventionStep {
     RESET_SELECTION,           // Screen 09 — Reset Activity list (64:7)
     RESET_IN_PROGRESS,         // Screen 09 — Interactive countdown execution
     AWARENESS_CARDS,           // Screen 10 — Awareness Cards reflection (64:46)
-    UNLOCK_SELECTION           // Screen 11 — Unlock batch choices (64:65)
+    UNLOCK_SELECTION,          // Screen 11 — Unlock batch choices (64:65)
+    BATCH_FINISHED             // Screen 15 — Daily Limit / Batch Finished (70:198)
 }
 
 data class InterventionUiState(
@@ -30,6 +31,8 @@ data class InterventionUiState(
     val blockedPackage: String = "",
     val surfaceCategory: String = "Reel",
     val todayReelsCount: Int? = null,
+    val batchUnlockedReelsCount: Int? = null,
+    val batchDurationMinutes: Int? = null,
     // Step 09 Reset Activity State
     val selectedActivity: ResetActivityType = ResetActivityType.FLIP_PHONE,
     val isActivityTimerRunning: Boolean = false,
@@ -61,14 +64,18 @@ class InterventionViewModel(
     private val usageRepository: UsageRepository? = null,
     initialPackage: String = "",
     initialSurface: String = "Reel",
-    private val initialStep: InterventionStep = InterventionStep.BLOCKED_REEL
+    private val initialStep: InterventionStep = InterventionStep.BLOCKED_REEL,
+    initialBatchAllowance: Int? = null,
+    initialBatchDurationMinutes: Int? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
         InterventionUiState(
             currentStep = initialStep,
             blockedPackage = initialPackage,
-            surfaceCategory = initialSurface
+            surfaceCategory = initialSurface,
+            batchUnlockedReelsCount = initialBatchAllowance,
+            batchDurationMinutes = initialBatchDurationMinutes
         )
     )
     val uiState: StateFlow<InterventionUiState> = _uiState.asStateFlow()
@@ -292,9 +299,17 @@ class InterventionViewModel(
                 // Exit intervention without unlocking
                 return false
             }
+            InterventionStep.BATCH_FINISHED -> {
+                // Exit intervention without unlocking
+                return false
+            }
             InterventionStep.RESET_SELECTION -> {
                 if (initialStep == InterventionStep.RESET_SELECTION) {
                     return false
+                }
+                if (initialStep == InterventionStep.BATCH_FINISHED) {
+                    _uiState.update { it.copy(currentStep = InterventionStep.BATCH_FINISHED) }
+                    return true
                 }
                 _uiState.update { it.copy(currentStep = InterventionStep.BLOCKED_REEL) }
                 return true
@@ -331,7 +346,9 @@ class InterventionViewModel(
             usageRepository: UsageRepository?,
             blockedPackage: String,
             surfaceCategory: String,
-            initialStep: InterventionStep = InterventionStep.BLOCKED_REEL
+            initialStep: InterventionStep = InterventionStep.BLOCKED_REEL,
+            initialBatchAllowance: Int? = null,
+            initialBatchDurationMinutes: Int? = null
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -340,7 +357,9 @@ class InterventionViewModel(
                     usageRepository = usageRepository,
                     initialPackage = blockedPackage,
                     initialSurface = surfaceCategory,
-                    initialStep = initialStep
+                    initialStep = initialStep,
+                    initialBatchAllowance = initialBatchAllowance,
+                    initialBatchDurationMinutes = initialBatchDurationMinutes
                 ) as T
             }
         }

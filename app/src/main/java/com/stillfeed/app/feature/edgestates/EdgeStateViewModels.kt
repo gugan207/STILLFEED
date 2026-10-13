@@ -16,6 +16,7 @@ import com.stillfeed.app.protection.permission.AccessibilityPermissionChecker
 import com.stillfeed.app.usage.aggregation.UsageAggregator
 import com.stillfeed.app.usage.stats.UsageStatsDataSource
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -409,12 +410,13 @@ class FirstDayViewModel(
             }
 
             try {
+                val zoneId = ZoneOffset.UTC
                 val nowZdt = ZonedDateTime.ofInstant(
                     Instant.ofEpochMilli(nowMillis),
-                    ZoneOffset.UTC
+                    zoneId
                 )
                 val startOfDayMillis = nowZdt.toLocalDate()
-                    .atStartOfDay(ZoneOffset.UTC)
+                    .atStartOfDay(zoneId)
                     .toInstant()
                     .toEpochMilli()
 

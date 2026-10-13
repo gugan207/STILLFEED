@@ -26,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,8 @@ import com.stillfeed.app.core.ui.theme.StillfeedHighlightGold
 import com.stillfeed.app.core.ui.theme.StillfeedSageGreen
 import com.stillfeed.app.core.ui.theme.StillfeedTheme
 import com.stillfeed.app.feature.awareness.AwarenessViewModel
+import com.stillfeed.app.feature.edgestates.connectivity.AndroidNetworkConnectivityObserver
+import com.stillfeed.app.feature.edgestates.connectivity.NetworkConnectivityObserver
 import com.stillfeed.app.feature.home.components.DaySunCompanion
 import com.stillfeed.app.feature.home.components.EveningMoonCompanion
 import com.stillfeed.app.feature.home.components.HomeWeeklyRhythmChart
@@ -61,6 +64,7 @@ import kotlin.math.abs
  *    Evening shows "TONIGHT" with calm reflection copy.
  * 5. Navigation: Reset activity CTA establishes contract for Step 19.
  * 6. Protection preservation: Alerts when protection is paused or permissions missing.
+ * 7. Non-jarring offline awareness: Surfaces verifiable network connectivity without route jumps.
  */
 @Composable
 fun HomeScreen(
@@ -70,11 +74,20 @@ fun HomeScreen(
     onNavigateToInsights: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onResetActivity: () -> Unit = {},
-    onNavigateToPermissionDisabled: () -> Unit = {}
+    onNavigateToPermissionDisabled: () -> Unit = {},
+    onNavigateToOffline: () -> Unit = {},
+    onNavigateToFirstDay: () -> Unit = {},
+    networkConnectivityObserver: NetworkConnectivityObserver? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    val effectiveNetworkObserver = networkConnectivityObserver ?: remember(context) {
+        AndroidNetworkConnectivityObserver(context)
+    }
+    val isOnline by effectiveNetworkObserver.observeIsOnline().collectAsState(initial = effectiveNetworkObserver.isOnline())
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -309,6 +322,64 @@ fun HomeScreen(
                             )
                         }
                         StillfeedStatusBadge(status = StillfeedStatus.NotConnected)
+                    }
+                }
+            }
+
+            // 5b. OFFLINE STATUS CARD (Working, non-intrusive offline entry path)
+            if (!isOnline) {
+                Spacer(modifier = Modifier.height(StillfeedTheme.spacing.md))
+                StillfeedCard(
+                    modifier = Modifier.clickable { onNavigateToOffline() }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "You’re Offline",
+                                style = StillfeedTheme.typography.titleSmall,
+                                color = StillfeedTheme.colors.textPrimary
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "On-device protection continues. Tap to view status.",
+                                style = StillfeedTheme.typography.bodySmall,
+                                color = StillfeedTheme.colors.textSecondary
+                            )
+                        }
+                        StillfeedStatusBadge(status = StillfeedStatus.Offline)
+                    }
+                }
+            }
+
+            // 5c. FIRST DAY ENTRY CARD (Working entry path to Screen 18 for new users)
+            if (uiState.yesterdayUsageMinutes == 0 && uiState.weeklyRhythm.none { it.usageMinutes > 0 } && uiState.todayUsageMinutes == 0) {
+                Spacer(modifier = Modifier.height(StillfeedTheme.spacing.md))
+                StillfeedCard(
+                    modifier = Modifier.clickable { onNavigateToFirstDay() }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "First Day",
+                                style = StillfeedTheme.typography.titleSmall,
+                                color = StillfeedTheme.colors.textPrimary
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Start with noticing. Tap to view first-day guide.",
+                                style = StillfeedTheme.typography.bodySmall,
+                                color = StillfeedTheme.colors.textSecondary
+                            )
+                        }
+                        StillfeedStatusBadge(status = StillfeedStatus.Protected)
                     }
                 }
             }
