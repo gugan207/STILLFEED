@@ -459,11 +459,9 @@ class ProductionAuthRepository(
             message.contains("already registered") || message.contains("already exists") || message.contains("duplicate") -> {
                 AuthError.AccountAlreadyExists()
             }
-            message.contains("550") || message.contains("could not send email") || message.contains("testing emails") -> {
+            message.contains("550") || message.contains("could not send email") || message.contains("testing emails") ||
+                message.contains("confirmation mail") || message.contains("confirmation email") -> {
                 AuthError.Unknown("Unable to send verification email. If using Resend in test mode, emails can only be sent to the verified account owner (guganthangaraj7@gmail.com). To send to other emails, verify a domain in Resend.")
-            }
-            message.contains("error sending confirmation email") -> {
-                AuthError.Unknown("Unable to deliver confirmation email. Please verify your email address or try again shortly.")
             }
             message.contains("network") || message.contains("timeout") || message.contains("connect") || message.contains("unable to connect") -> {
                 AuthError.NetworkFailure()

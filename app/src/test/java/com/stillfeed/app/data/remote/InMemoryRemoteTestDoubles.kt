@@ -22,6 +22,7 @@ class InMemoryRemoteAuthDataSource : RemoteAuthDataSource {
     var simulateExpiredRefreshToken: Boolean = false
     var simulateExistingUserResponse: Boolean = false
     var simulateSmtp550Error: Boolean = false
+    var simulateConfirmationMailError: Boolean = false
 
     var signedOutTokens = mutableListOf<String>()
     var deletedTokens = mutableListOf<String>()
@@ -56,6 +57,9 @@ class InMemoryRemoteAuthDataSource : RemoteAuthDataSource {
         }
         if (simulateSmtp550Error) {
             return Result.failure(IllegalArgumentException("gomail: could not send email 1: 550 You can only send testing emails to your own email address"))
+        }
+        if (simulateConfirmationMailError) {
+            return Result.failure(IllegalArgumentException("Error sending confirmation mail"))
         }
         if (simulateMalformedResponse) {
             return Result.failure(IllegalArgumentException("Malformed JSON received from authentication service"))

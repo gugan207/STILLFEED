@@ -491,5 +491,18 @@ class ProductionAuthRepositoryTest {
         val authState = repository.authState.first()
         assertTrue(authState is AuthState.Error)
     }
+
+    @Test
+    fun signUp_whenGoTrueReturnsErrorSendingConfirmationMail_mapsToHelpfulDeliveryErrorMessage() = runTest(testDispatcher) {
+        remoteAuthDataSource.simulateConfirmationMailError = true
+
+        val result = repository.signUp("newuser@example.com", "Password123!", "New User")
+        assertTrue(result.isFailure)
+        val errorMessage = result.exceptionOrNull()?.message ?: ""
+        assertTrue("Error message should explain Resend test mode recipient limitation", errorMessage.contains("guganthangaraj7@gmail.com"))
+
+        val authState = repository.authState.first()
+        assertTrue(authState is AuthState.Error)
+    }
 }
 
