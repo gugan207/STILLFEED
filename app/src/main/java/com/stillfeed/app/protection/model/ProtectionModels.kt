@@ -19,7 +19,9 @@ data class AccessibilityWindowContext(
     val activeViewIds: Set<String> = emptySet(),
     val structuralTags: Set<String> = emptySet(),
     val windowId: Int = 0,
-    val timestampMillis: Long = System.currentTimeMillis()
+    val timestampMillis: Long = System.currentTimeMillis(),
+    val eventType: Int = 0,
+    val contentTransitionToken: String? = null
 ) {
     /**
      * Checks whether any of the collected view IDs contains the given [substring].

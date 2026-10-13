@@ -20,6 +20,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
+import android.view.accessibility.AccessibilityEvent
+import com.stillfeed.app.domain.repository.UnlockSessionRepository
+
 /**
  * Domain-level contract for the STILLFEED attention-protection engine (STEP 06 Phase 3).
  *
@@ -27,8 +30,9 @@ import java.util.UUID
  * 1. Coordinates persistent protection toggle state.
  * 2. Rapidly updates active blocking policy in real time without app restart.
  * 3. Evaluates structural window contexts and classifies short-form surfaces.
- * 4. Issues deterministic [ProtectionDecision.Block] or [ProtectionDecision.Allow].
- * 5. Records privacy-minimal [UsageEvent] entries when short-form sessions are intercepted.
+ * 4. Checks active batch viewing unlock allowances (STEP 19).
+ * 5. Issues deterministic [ProtectionDecision.Block] or [ProtectionDecision.Allow].
+ * 6. Records privacy-minimal [UsageEvent] entries when short-form sessions are intercepted.
  */
 interface ProtectionEngine {
     val isProtectionEnabled: StateFlow<Boolean>
@@ -56,6 +60,7 @@ class DefaultProtectionEngine(
     private val protectionStateRepository: ProtectionStateRepository,
     private val usageRepository: UsageRepository? = null,
     private val classifier: SurfaceClassifier = CompositeSurfaceClassifier(),
+    private val unlockSessionRepository: UnlockSessionRepository? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     coroutineScope: CoroutineScope? = null
 ) : ProtectionEngine {
@@ -115,6 +120,26 @@ class DefaultProtectionEngine(
             val classification = classifier.classify(context)
 
             if (classification.isProtectedShortForm) {
+                // Rule 2a (STEP 19): Check for an active, valid batch viewing unlock
+                val activeUnlock = unlockSessionRepository?.getActiveUnlock(context.packageName)
+                if (activeUnlock != null && activeUnlock.isValid) {
+                    val isExplicitTransition = context.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED ||
+                            context.contentTransitionToken != null
+
+                    val updatedSession = unlockSessionRepository.consumeReelAllowance(
+                        packageName = context.packageName,
+                        signalKey = classification.matchedSignal,
+                        isExplicitTransition = isExplicitTransition
+                    )
+                    val remaining = updatedSession?.remainingBatchAllowance ?: activeUnlock.remainingBatchAllowance
+
+                    return@withContext ProtectionDecision.Allow(
+                        packageName = context.packageName,
+                        surfaceCategory = classification.surfaceCategory,
+                        reason = "Active unlock: $remaining reels remaining (batch of ${activeUnlock.selectedBatchAllowance})"
+                    )
+                }
+
                 // Rate-limit database events (e.g. 1 per 2 seconds per package) to avoid flooding Room
                 val now = System.currentTimeMillis()
                 val isRecentDuplicate = context.packageName == lastBlockedPackage &&
