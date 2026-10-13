@@ -465,5 +465,31 @@ class ProductionAuthRepositoryTest {
         assertEquals("My Custom Profile Name", storedUser?.displayName)
         assertEquals(initialCreatedAt, storedUser?.createdAtMillis)
     }
+
+    @Test
+    fun signUp_whenResponseIndicatesExistingUser_returnsAccountAlreadyExistsError() = runTest(testDispatcher) {
+        remoteAuthDataSource.simulateExistingUserResponse = true
+
+        val result = repository.signUp("existing@example.com", "Password123!", "Existing User")
+        assertTrue(result.isFailure)
+        assertEquals(AuthError.AccountAlreadyExists().userMessage, result.exceptionOrNull()?.message)
+
+        val authState = repository.authState.first()
+        assertTrue(authState is AuthState.Error)
+        assertEquals(AuthError.AccountAlreadyExists().userMessage, (authState as AuthState.Error).error.userMessage)
+    }
+
+    @Test
+    fun signUp_whenSmtp550ErrorOccurs_mapsToHelpfulDeliveryErrorMessage() = runTest(testDispatcher) {
+        remoteAuthDataSource.simulateSmtp550Error = true
+
+        val result = repository.signUp("newuser@example.com", "Password123!", "New User")
+        assertTrue(result.isFailure)
+        val errorMessage = result.exceptionOrNull()?.message ?: ""
+        assertTrue("Error message should mention Resend test mode or email delivery", errorMessage.contains("Resend") || errorMessage.contains("delivery"))
+
+        val authState = repository.authState.first()
+        assertTrue(authState is AuthState.Error)
+    }
 }
 

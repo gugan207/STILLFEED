@@ -11,7 +11,8 @@ data class RemoteAuthResponse(
     val refreshToken: String?,
     val expiresInSeconds: Long,
     val registeredDeviceBindingId: String? = null,
-    val requiresEmailVerification: Boolean = false
+    val requiresEmailVerification: Boolean = false,
+    val isExistingUser: Boolean = false
 )
 
 /**

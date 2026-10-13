@@ -99,6 +99,8 @@ class SupabaseRemoteAuthDataSource(
         val displayName = userMetadata?.optString("display_name") ?: fallbackDisplayName
 
         val requiresVerification = accessToken.isBlank()
+        val identitiesArray = userObj.optJSONArray("identities")
+        val isExistingUser = identitiesArray != null && identitiesArray.length() == 0
 
         return RemoteAuthResponse(
             userId = userId,
@@ -108,7 +110,8 @@ class SupabaseRemoteAuthDataSource(
             refreshToken = refreshToken,
             expiresInSeconds = expiresIn,
             registeredDeviceBindingId = null,
-            requiresEmailVerification = requiresVerification
+            requiresEmailVerification = requiresVerification,
+            isExistingUser = isExistingUser
         )
     }
 }

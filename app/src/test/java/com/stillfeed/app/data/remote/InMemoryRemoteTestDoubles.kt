@@ -20,6 +20,8 @@ class InMemoryRemoteAuthDataSource : RemoteAuthDataSource {
     var simulateAccountAlreadyExists: Boolean = false
     var simulateInvalidCredentials: Boolean = false
     var simulateExpiredRefreshToken: Boolean = false
+    var simulateExistingUserResponse: Boolean = false
+    var simulateSmtp550Error: Boolean = false
 
     var signedOutTokens = mutableListOf<String>()
     var deletedTokens = mutableListOf<String>()
@@ -52,10 +54,27 @@ class InMemoryRemoteAuthDataSource : RemoteAuthDataSource {
         if (simulateNetworkError) {
             return Result.failure(IOException("Network error: connection timed out"))
         }
+        if (simulateSmtp550Error) {
+            return Result.failure(IllegalArgumentException("gomail: could not send email 1: 550 You can only send testing emails to your own email address"))
+        }
         if (simulateMalformedResponse) {
             return Result.failure(IllegalArgumentException("Malformed JSON received from authentication service"))
         }
         val normalized = email.trim().lowercase()
+        if (simulateExistingUserResponse) {
+            return Result.success(
+                RemoteAuthResponse(
+                    userId = "user_existing_123",
+                    email = normalized,
+                    displayName = displayName,
+                    accessToken = "",
+                    refreshToken = null,
+                    expiresInSeconds = 3600L,
+                    requiresEmailVerification = true,
+                    isExistingUser = true
+                )
+            )
+        }
         if (simulateAccountAlreadyExists || accounts.containsKey(normalized)) {
             return Result.failure(IllegalArgumentException("User already exists with this email address"))
         }
