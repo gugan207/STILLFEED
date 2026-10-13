@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
+import android.view.accessibility.AccessibilityEvent
 import com.stillfeed.app.domain.repository.UnlockSessionRepository
 
 /**
@@ -122,9 +123,13 @@ class DefaultProtectionEngine(
                 // Rule 2a (STEP 19): Check for an active, valid batch viewing unlock
                 val activeUnlock = unlockSessionRepository?.getActiveUnlock(context.packageName)
                 if (activeUnlock != null && activeUnlock.isValid) {
+                    val isExplicitTransition = context.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED ||
+                            context.contentTransitionToken != null
+
                     val updatedSession = unlockSessionRepository.consumeReelAllowance(
                         packageName = context.packageName,
-                        signalKey = classification.matchedSignal
+                        signalKey = classification.matchedSignal,
+                        isExplicitTransition = isExplicitTransition
                     )
                     val remaining = updatedSession?.remainingBatchAllowance ?: activeUnlock.remainingBatchAllowance
 

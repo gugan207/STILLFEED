@@ -59,7 +59,10 @@ class StillfeedApplication : Application() {
         private set
 
     val unlockSessionRepository: com.stillfeed.app.domain.repository.UnlockSessionRepository by lazy {
-        com.stillfeed.app.data.repository.DefaultUnlockSessionRepository(unlockHistoryRepository)
+        com.stillfeed.app.data.repository.DefaultUnlockSessionRepository(
+            activeUnlockSessionDao = database.activeUnlockSessionDao(),
+            unlockHistoryRepository = unlockHistoryRepository
+        )
     }
 
     val protectionEngine: com.stillfeed.app.protection.engine.ProtectionEngine by lazy {

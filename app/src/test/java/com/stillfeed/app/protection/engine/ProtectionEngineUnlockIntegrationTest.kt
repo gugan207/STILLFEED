@@ -44,7 +44,10 @@ class ProtectionEngineUnlockIntegrationTest {
         database = StillfeedDatabase.buildInMemory(context)
         protectionRepo = LocalProtectionStateRepository(database.protectionStateDao(), testDispatcher)
         usageRepo = LocalUsageRepository(database.usageEventDao(), testDispatcher)
-        unlockRepo = DefaultUnlockSessionRepository(ioDispatcher = testDispatcher)
+        unlockRepo = DefaultUnlockSessionRepository(
+            activeUnlockSessionDao = database.activeUnlockSessionDao(),
+            ioDispatcher = testDispatcher
+        )
         createdEngines.clear()
     }
 
@@ -117,6 +120,44 @@ class ProtectionEngineUnlockIntegrationTest {
     }
 
     @Test
+    fun protectionEnabled_repeatedContentChanges_doNotDecrementAllowance() = testScope.runTest {
+        protectionRepo.setProtectionEnabled(true)
+        val engine = createEngine(this)
+        engine.isProtectionEnabled.first { it }
+
+        // Create unlock batch of 5 reels
+        unlockRepo.createUnlockSession(
+            packageName = "com.instagram.android",
+            batchAllowance = 5,
+            activityType = "FLIP_PHONE",
+            verifiedActivityCompletion = true
+        )
+
+        val context = AccessibilityWindowContext(
+            packageName = "com.instagram.android",
+            activeViewIds = setOf("com.instagram.android:id/clips_viewer_view_pager"),
+            eventType = android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+        )
+
+        // First evaluation: entry into viewer -> 4 remaining
+        val d1 = engine.evaluateContext(context)
+        assertTrue(d1 is ProtectionDecision.Allow)
+        assertEquals(4, unlockRepo.getActiveUnlock("com.instagram.android")?.remainingBatchAllowance)
+
+        // Second evaluation: repeated content change on same Reel -> should NOT decrement
+        val d2 = engine.evaluateContext(context)
+        assertTrue(d2 is ProtectionDecision.Allow)
+        assertEquals(4, unlockRepo.getActiveUnlock("com.instagram.android")?.remainingBatchAllowance)
+
+        // Third evaluation: another content change on same Reel -> should NOT decrement
+        val d3 = engine.evaluateContext(context)
+        assertTrue(d3 is ProtectionDecision.Allow)
+        assertEquals(4, unlockRepo.getActiveUnlock("com.instagram.android")?.remainingBatchAllowance)
+
+        engine.close()
+    }
+
+    @Test
     fun protectionEnabled_whenUnlockExhausted_blocksReelAgain() = testScope.runTest {
         protectionRepo.setProtectionEnabled(true)
         val engine = createEngine(this)
@@ -145,3 +186,4 @@ class ProtectionEngineUnlockIntegrationTest {
         engine.close()
     }
 }
+

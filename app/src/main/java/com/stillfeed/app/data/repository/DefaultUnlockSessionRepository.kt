@@ -1,5 +1,8 @@
 package com.stillfeed.app.data.repository
 
+import com.stillfeed.app.data.local.dao.ActiveUnlockSessionDao
+import com.stillfeed.app.data.local.mapper.toDomain
+import com.stillfeed.app.data.local.mapper.toEntity
 import com.stillfeed.app.domain.model.BatchUnlockSession
 import com.stillfeed.app.domain.model.UnlockEvent
 import com.stillfeed.app.domain.repository.UnlockHistoryRepository
@@ -8,7 +11,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -21,11 +23,20 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * Guarantees:
  * 1. Thread-safe atomic unlock creation protected by [Mutex].
- * 2. Idempotent: repeated rapid requests within cooldown window return the existing active session.
- * 3. Records permanent audit trail in [UnlockHistoryRepository] without blocking.
- * 4. Deduplicates repeat accessibility events for the same Reel/Short so allowance is not falsely consumed.
+ * 2. Durable Room persistence via [ActiveUnlockSessionDao]: survives process death and recreation.
+ * 3. Restoration on startup restores ONLY active sessions that remain valid (unexpired & unexhausted).
+ * 4. Idempotent: repeated rapid requests within cooldown window return the existing active session.
+ * 5. Defensible Reel transition detection:
+ *    - Repeated events on the same static container for the same Reel do NOT decrement.
+ *    - Explicit verified transitions (scrolls or distinct transition tokens) consume 1 allowance.
+ *    - Debounces rapid duplicate scroll events (minimum 1.5s between reel decrements).
+ *    - Flags [BatchUnlockSession.isIndeterminateTracking] when only static container IDs are observed.
+ *    - Bounded expiration window ensures safe fallback against indefinite viewing.
+ * 6. Correct audit semantics: records [UnlockEvent] without corrupting [UnlockEvent.allowanceMinutes]
+ *    with batch Reel counts.
  */
 class DefaultUnlockSessionRepository(
+    private val activeUnlockSessionDao: ActiveUnlockSessionDao? = null,
     private val unlockHistoryRepository: UnlockHistoryRepository? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : UnlockSessionRepository {
@@ -37,11 +48,43 @@ class DefaultUnlockSessionRepository(
     // Deduplication tracking: packageName -> (lastSignalKey, lastConsumedTimestamp)
     private val lastConsumedSignals = ConcurrentHashMap<String, Pair<String?, Long>>()
 
+    init {
+        restorePersistedSessions()
+    }
+
+    /**
+     * Synchronously restores persisted sessions from Room on initialization.
+     * Restores ONLY sessions that remain valid (neither expired nor exhausted).
+     */
+    private fun restorePersistedSessions() {
+        try {
+            val persistedEntities = activeUnlockSessionDao?.getAllSessionsSync() ?: emptyList()
+            val now = System.currentTimeMillis()
+            persistedEntities.forEach { entity ->
+                val session = entity.toDomain()
+                if (session.isValid(now)) {
+                    activeSessions[session.packageName] = session
+                } else {
+                    // Clean up stale, expired, or exhausted sessions from disk
+                    activeUnlockSessionDao?.deleteSessionByPackageSync(session.packageName)
+                }
+            }
+            sessionsFlow.value = activeSessions.toMap()
+        } catch (_: Exception) {
+            // Fail-safe: database access error during init should not crash process
+        }
+    }
+
     override fun getActiveUnlock(packageName: String): BatchUnlockSession? {
         val session = activeSessions[packageName] ?: return null
-        if (!session.isValid) {
+        val now = System.currentTimeMillis()
+        if (!session.isValid(now)) {
             activeSessions.remove(packageName)
             sessionsFlow.value = activeSessions.toMap()
+            try {
+                activeUnlockSessionDao?.deleteSessionByPackageSync(packageName)
+            } catch (_: Exception) {
+            }
             return null
         }
         return session
@@ -66,13 +109,15 @@ class DefaultUnlockSessionRepository(
         }
 
         mutex.withLock {
-            val existing = activeSessions[packageName]
             val now = System.currentTimeMillis()
+            val existing = activeSessions[packageName]
 
             // Idempotency: if an active valid session was created in the last 2 seconds with the same parameters, reuse it
-            if (existing != null && existing.isValid && (now - existing.createdAtMillis) < IDEMPOTENT_WINDOW_MS) {
+            if (existing != null && existing.isValid(now) && (now - existing.createdAtMillis) < IDEMPOTENT_WINDOW_MS) {
                 return@withLock Result.success(existing)
             }
+
+            val boundedExpiresAt = BatchUnlockSession.calculateExpirationMillis(batchAllowance, now)
 
             val newSession = BatchUnlockSession(
                 id = UUID.randomUUID().toString(),
@@ -82,24 +127,38 @@ class DefaultUnlockSessionRepository(
                 activityType = activityType,
                 verifiedActivityCompletion = true,
                 createdAtMillis = now,
-                expiresAtMillis = now + BatchUnlockSession.DEFAULT_EXPIRATION_WINDOW_MS
+                expiresAtMillis = boundedExpiresAt
             )
+
+            // Requirement 3: Durable storage in Room.
+            // If persistence fails, never report an unlock as durably saved when it was not!
+            if (activeUnlockSessionDao != null) {
+                try {
+                    activeUnlockSessionDao.insertOrUpdate(newSession.toEntity())
+                } catch (e: Exception) {
+                    return@withLock Result.failure(
+                        IllegalStateException("Failed to durably persist active unlock session: ${e.message}", e)
+                    )
+                }
+            }
 
             activeSessions[packageName] = newSession
             sessionsFlow.value = activeSessions.toMap()
 
-            // Record audit trail event in Room DB
+            // Requirement 4: Record audit history.
+            // Do NOT store Reel count as minutes in allowanceMinutes. Set allowanceMinutes = 0
+            // and clearly state batch Reel count in reason to protect duration-based Insights.
             try {
                 unlockHistoryRepository?.recordUnlock(
                     UnlockEvent(
                         id = newSession.id,
                         timestampMillis = now,
-                        allowanceMinutes = batchAllowance, // Stored as batch allowance unit
+                        allowanceMinutes = 0,
                         reason = "Batch unlock: $batchAllowance reels ($activityType)"
                     )
                 )
             } catch (_: Exception) {
-                // Fail-safe: persistence failure should not block immediate user unlock
+                // Fail-safe: audit history error should not block active unlock
             }
 
             Result.success(newSession)
@@ -108,70 +167,94 @@ class DefaultUnlockSessionRepository(
 
     override suspend fun consumeReelAllowance(
         packageName: String,
-        signalKey: String?
+        signalKey: String?,
+        isExplicitTransition: Boolean
     ): BatchUnlockSession? = withContext(ioDispatcher) {
         mutex.withLock {
             val session = activeSessions[packageName] ?: return@withLock null
-            if (!session.isValid) {
+            val now = System.currentTimeMillis()
+            if (!session.isValid(now)) {
                 activeSessions.remove(packageName)
                 sessionsFlow.value = activeSessions.toMap()
+                activeUnlockSessionDao?.deleteSessionByPackage(packageName)
                 return@withLock null
             }
 
-            val now = System.currentTimeMillis()
             val lastSignal = lastConsumedSignals[packageName]
 
-            // Deduplication & Indeterminate Tracking Rule:
-            // 1. If signalKey matches the previous signal key (e.g. static container "clips_viewer_view_pager"
-            //    or "reel_recycler"), the user is still in the same ongoing viewing session.
-            //    Repeated accessibility events (window state, playback ticks, caption updates) MUST NOT
-            //    decrement again for the same Reel/Short.
-            // 2. Mark isIndeterminateTracking = true to explicitly acknowledge that static view IDs alone
-            //    cannot verify individual reel transitions without Step 21's floating companion.
-            if (lastSignal != null) {
-                val (previousKey, previousTime) = lastSignal
-                val timeDelta = now - previousTime
-
-                if (signalKey != null && signalKey == previousKey) {
-                    val updatedSession = if (!session.isIndeterminateTracking) {
-                        val flagged = session.copy(isIndeterminateTracking = true)
-                        activeSessions[packageName] = flagged
-                        sessionsFlow.value = activeSessions.toMap()
-                        flagged
-                    } else {
-                        session
-                    }
-                    return@withLock updatedSession
-                }
-
-                // For a new distinct signal key, ensure minimum human consumption threshold (1.5s)
-                if (timeDelta < MIN_REEL_CONSUMPTION_INTERVAL_MS) {
-                    return@withLock session
-                }
+            // Scenario 1: First entry into the short-form viewer during this unlock session.
+            // Count the initial reel being presented to the user.
+            if (lastSignal == null) {
+                val updatedRemaining = (session.remainingBatchAllowance - 1).coerceAtLeast(0)
+                val updatedSession = session.copy(
+                    remainingBatchAllowance = updatedRemaining
+                )
+                lastConsumedSignals[packageName] = Pair(signalKey, now)
+                persistSessionUpdate(updatedSession)
+                return@withLock updatedSession
             }
 
+            val (previousKey, previousTime) = lastSignal
+            val timeDelta = now - previousTime
+
+            // Scenario 2: Repeated events on the same static container without an explicit transition.
+            // Captions, playback ticks, volume, comment drawers fire TYPE_WINDOW_CONTENT_CHANGED.
+            // Deduplicate completely — do NOT decrement again for the same Reel!
+            if (!isExplicitTransition && signalKey != null && signalKey == previousKey) {
+                val updatedSession = if (!session.isIndeterminateTracking) {
+                    val flagged = session.copy(isIndeterminateTracking = true)
+                    persistSessionUpdate(flagged)
+                    flagged
+                } else {
+                    session
+                }
+                return@withLock updatedSession
+            }
+
+            // Scenario 3: Rapid duplicate transitions within debounce threshold (1.5s).
+            // A human cannot physically consume another Reel in under 1.5s. Drop rapid multi-ticks.
+            if (timeDelta < MIN_REEL_CONSUMPTION_INTERVAL_MS) {
+                return@withLock session
+            }
+
+            // Scenario 4: Verified new Reel transition (either explicit scroll event OR distinct item key).
+            // Decrement exactly ONE allowance.
             val updatedRemaining = (session.remainingBatchAllowance - 1).coerceAtLeast(0)
             val updatedSession = session.copy(
                 remainingBatchAllowance = updatedRemaining
             )
-
             lastConsumedSignals[packageName] = Pair(signalKey, now)
-
-            if (updatedSession.isExhausted) {
-                activeSessions.remove(packageName)
-            } else {
-                activeSessions[packageName] = updatedSession
-            }
-
-            sessionsFlow.value = activeSessions.toMap()
-            updatedSession
+            persistSessionUpdate(updatedSession)
+            return@withLock updatedSession
         }
+    }
+
+    private suspend fun persistSessionUpdate(session: BatchUnlockSession) {
+        if (session.isExhausted) {
+            activeSessions.remove(session.packageName)
+            try {
+                activeUnlockSessionDao?.deleteSessionByPackage(session.packageName)
+            } catch (_: Exception) {
+            }
+        } else {
+            activeSessions[session.packageName] = session
+            try {
+                activeUnlockSessionDao?.insertOrUpdate(session.toEntity())
+            } catch (_: Exception) {
+            }
+        }
+        sessionsFlow.value = activeSessions.toMap()
     }
 
     override suspend fun expireUnlock(packageName: String): Unit = withContext(ioDispatcher) {
         mutex.withLock {
             activeSessions.remove(packageName)
+            lastConsumedSignals.remove(packageName)
             sessionsFlow.value = activeSessions.toMap()
+            try {
+                activeUnlockSessionDao?.deleteSessionByPackage(packageName)
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -187,12 +270,15 @@ class DefaultUnlockSessionRepository(
             activeSessions.clear()
             lastConsumedSignals.clear()
             sessionsFlow.value = emptyMap()
+            try {
+                activeUnlockSessionDao?.deleteAllSessions()
+            } catch (_: Exception) {
+            }
         }
     }
 
     companion object {
         private const val IDEMPOTENT_WINDOW_MS = 2000L
-        private const val DEDUPE_SAME_SIGNAL_WINDOW_MS = 3000L
         private const val MIN_REEL_CONSUMPTION_INTERVAL_MS = 1500L
     }
 }

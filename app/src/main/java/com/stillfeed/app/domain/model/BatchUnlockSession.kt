@@ -26,14 +26,27 @@ data class BatchUnlockSession(
         get() = remainingBatchAllowance <= 0
 
     val isExpired: Boolean
-        get() = System.currentTimeMillis() > expiresAtMillis
+        get() = isExpired(System.currentTimeMillis())
+
+    fun isExpired(nowMillis: Long): Boolean = nowMillis > expiresAtMillis
 
     val isValid: Boolean
-        get() = verifiedActivityCompletion && !isExhausted && !isExpired
+        get() = isValid(System.currentTimeMillis())
+
+    fun isValid(nowMillis: Long): Boolean = verifiedActivityCompletion && !isExhausted && !isExpired(nowMillis)
 
     companion object {
         const val DEFAULT_EXPIRATION_WINDOW_MS = 60 * 60 * 1000L // 1 hour validity
 
         val SUPPORTED_BATCH_OPTIONS = listOf(5, 10, 20, 30)
+
+        /**
+         * Calculates a bounded expiration window based on batch size to prevent indefinite
+         * viewing in indeterminate tracking environments (e.g. 2.5 minutes per reel, bounded 10-60 min).
+         */
+        fun calculateExpirationMillis(batchAllowance: Int, nowMillis: Long = System.currentTimeMillis()): Long {
+            val durationMs = (batchAllowance * 150_000L).coerceIn(10 * 60 * 1000L, 60 * 60 * 1000L)
+            return nowMillis + durationMs
+        }
     }
 }

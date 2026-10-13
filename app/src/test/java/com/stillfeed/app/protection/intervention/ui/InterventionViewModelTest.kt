@@ -210,4 +210,106 @@ class InterventionViewModelTest {
         assertTrue(viewModel.handleBackNavigation())
         assertEquals(InterventionStep.RESET_SELECTION, viewModel.uiState.value.currentStep)
     }
+
+    @Test
+    fun loadTodayReelCount_ignoresBlockedAttempts_andKeepsCountNull() = runTest {
+        val fakeUsage = FakeUsageRepository()
+        // Record 5 blocked attempt events (isBlocked = true)
+        val now = System.currentTimeMillis()
+        for (i in 1..5) {
+            fakeUsage.recordEvent(
+                com.stillfeed.app.domain.model.UsageEvent(
+                    id = "blocked_$i",
+                    timestampMillis = now,
+                    packageName = "com.instagram.android",
+                    surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
+                    eventType = com.stillfeed.app.domain.model.UsageEventType.BLOCKED,
+                    isBlocked = true
+                )
+            )
+        }
+
+        val vm = InterventionViewModel(
+            unlockSessionRepository = unlockRepository,
+            usageRepository = fakeUsage,
+            initialPackage = "com.instagram.android"
+        )
+        advanceUntilIdle()
+
+        // Requirement 1: isBlocked == true measures blocked attempts rather than watched Reels.
+        // It must NOT count blocked attempts as watched reels!
+        assertNull("Blocked attempts must not masquerade as watched reels", vm.uiState.value.todayReelsCount)
+    }
+
+    @Test
+    fun loadTodayReelCount_countsOnlyWatchedReels_withinLocalCalendarDay() = runTest {
+        val fakeUsage = FakeUsageRepository()
+        val now = System.currentTimeMillis()
+
+        // 1. Two genuine watched reels today (eventType = UNLOCKED, isBlocked = false)
+        fakeUsage.recordEvent(
+            com.stillfeed.app.domain.model.UsageEvent(
+                id = "watched_1",
+                timestampMillis = now - 60_000L,
+                packageName = "com.instagram.android",
+                surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
+                eventType = com.stillfeed.app.domain.model.UsageEventType.UNLOCKED,
+                isBlocked = false,
+                isUnlocked = true
+            )
+        )
+        fakeUsage.recordEvent(
+            com.stillfeed.app.domain.model.UsageEvent(
+                id = "watched_2",
+                timestampMillis = now - 30_000L,
+                packageName = "com.instagram.android",
+                surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
+                eventType = com.stillfeed.app.domain.model.UsageEventType.UNLOCKED,
+                isBlocked = false,
+                isUnlocked = true
+            )
+        )
+
+        // 2. One watched reel yesterday (prior to local midnight)
+        val localMidnight = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        fakeUsage.recordEvent(
+            com.stillfeed.app.domain.model.UsageEvent(
+                id = "watched_yesterday",
+                timestampMillis = localMidnight - 3600_000L,
+                packageName = "com.instagram.android",
+                surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
+                eventType = com.stillfeed.app.domain.model.UsageEventType.UNLOCKED,
+                isBlocked = false,
+                isUnlocked = true
+            )
+        )
+
+        val vm = InterventionViewModel(
+            unlockSessionRepository = unlockRepository,
+            usageRepository = fakeUsage,
+            initialPackage = "com.instagram.android"
+        )
+        advanceUntilIdle()
+
+        // Only the 2 reels watched today in the local calendar day are counted
+        assertEquals(2, vm.uiState.value.todayReelsCount)
+    }
+
+    private class FakeUsageRepository : com.stillfeed.app.domain.repository.UsageRepository {
+        val events = mutableListOf<com.stillfeed.app.domain.model.UsageEvent>()
+        override suspend fun recordEvent(event: com.stillfeed.app.domain.model.UsageEvent) { events.add(event) }
+        override suspend fun recordEvents(events: List<com.stillfeed.app.domain.model.UsageEvent>) { this.events.addAll(events) }
+        override suspend fun getEventById(id: String) = events.find { it.id == id }
+        override fun observeEventsInRange(startMillis: Long, endMillis: Long) = kotlinx.coroutines.flow.flowOf(events.filter { it.timestampMillis in startMillis..endMillis })
+        override suspend fun getEventsInRange(startMillis: Long, endMillis: Long) = events.filter { it.timestampMillis in startMillis..endMillis }
+        override suspend fun getEventCount() = events.size
+        override suspend fun deleteEventsOlderThan(cutoffMillis: Long) = 0
+        override suspend fun clearUsageHistory() { events.clear() }
+    }
 }
+

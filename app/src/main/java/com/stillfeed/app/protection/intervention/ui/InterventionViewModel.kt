@@ -84,11 +84,27 @@ class InterventionViewModel(
                     _uiState.update { it.copy(todayReelsCount = null) }
                     return@launch
                 }
+                // Requirement 1: Use user's local calendar day rather than UTC midnight
+                val localCalendar = java.util.Calendar.getInstance().apply {
+                    set(java.util.Calendar.HOUR_OF_DAY, 0)
+                    set(java.util.Calendar.MINUTE, 0)
+                    set(java.util.Calendar.SECOND, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                }
+                val startOfLocalDay = localCalendar.timeInMillis
                 val now = System.currentTimeMillis()
-                val startOfDay = now - (now % (24 * 60 * 60 * 1000L))
-                val events = usageRepository.getEventsInRange(startOfDay, now)
-                val blockedCount = events.count { it.isBlocked }
-                _uiState.update { it.copy(todayReelsCount = blockedCount) }
+
+                val events = usageRepository.getEventsInRange(startOfLocalDay, now)
+                // Requirement 1: Only count genuine watched-Reel events (e.g. UNLOCKED),
+                // NEVER count isBlocked == true (which measures blocked attempts).
+                val verifiedWatchedEvents = events.filter { it.isUnlocked || it.eventType == com.stillfeed.app.domain.model.UsageEventType.UNLOCKED }
+
+                if (verifiedWatchedEvents.isNotEmpty()) {
+                    _uiState.update { it.copy(todayReelsCount = verifiedWatchedEvents.size) }
+                } else {
+                    // When reliable watched-Reel tracking data is unavailable, keep null
+                    _uiState.update { it.copy(todayReelsCount = null) }
+                }
             } catch (_: Exception) {
                 _uiState.update { it.copy(todayReelsCount = null) }
             }

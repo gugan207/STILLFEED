@@ -29,7 +29,11 @@ interface UnlockSessionRepository {
      * If the session becomes exhausted, it is marked as exhausted.
      * Returns the updated session, or null if no valid session existed.
      */
-    suspend fun consumeReelAllowance(packageName: String, signalKey: String? = null): BatchUnlockSession?
+    suspend fun consumeReelAllowance(
+        packageName: String,
+        signalKey: String? = null,
+        isExplicitTransition: Boolean = false
+    ): BatchUnlockSession?
 
     /**
      * Explicitly expires or clears the active unlock session for [packageName].
