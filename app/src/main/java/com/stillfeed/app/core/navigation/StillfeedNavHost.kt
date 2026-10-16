@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -193,15 +194,25 @@ fun StillfeedNavHost(
                 else -> Screen.Onboarding.route
             }
 
-            NavHost(
-                navController = navController,
-                startDestination = effectiveStartDestination,
-                modifier = modifier,
-                enterTransition = { EnterTransition.None },
-                exitTransition = { ExitTransition.None },
-                popEnterTransition = { EnterTransition.None },
-                popExitTransition = { ExitTransition.None }
-            ) {
+            val isAppLockEnabled = preferences?.appLockEnabled ?: false
+            var isAppUnlocked by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+
+            if (isAppLockEnabled && !isAppUnlocked) {
+                com.stillfeed.app.feature.settings.subscreens.AppLockChallengeScreen(
+                    configuredPin = preferences?.appLockPin ?: "",
+                    onUnlocked = { isAppUnlocked = true },
+                    modifier = modifier
+                )
+            } else {
+                NavHost(
+                    navController = navController,
+                    startDestination = effectiveStartDestination,
+                    modifier = modifier,
+                    enterTransition = { EnterTransition.None },
+                    exitTransition = { ExitTransition.None },
+                    popEnterTransition = { EnterTransition.None },
+                    popExitTransition = { ExitTransition.None }
+                ) {
                 composable(route = Screen.Onboarding.route) {
                     resolvedOnboardingVm?.let { vm ->
                         OnboardingScreen(
@@ -638,7 +649,8 @@ fun StillfeedNavHost(
                 }
             }
         }
-        else -> {
+    }
+    else -> {
             // Unauthenticated state: SignedOut, SessionExpired, Error, NeedsEmailVerification
             AuthGate(viewModel = authVm) {
                 // When sign in succeeds, authState becomes SignedIn and switches to the branch above
