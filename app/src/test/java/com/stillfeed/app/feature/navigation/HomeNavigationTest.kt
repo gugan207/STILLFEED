@@ -21,7 +21,12 @@ class HomeNavigationTest {
             Screen.Home.route,
             Screen.AwarenessSelection.route,
             Screen.Insights.route,
-            Screen.Settings.route
+            Screen.Settings.route,
+            Screen.ResetActivity.route,
+            Screen.BatchFinished.route,
+            Screen.PermissionDisabled.route,
+            Screen.Offline.route,
+            Screen.FirstDay.route
         )
 
         // All routes must be non-empty and unique
@@ -39,6 +44,11 @@ class HomeNavigationTest {
         assertEquals("home", Screen.Home.route)
         assertEquals("insights", Screen.Insights.route)
         assertEquals("settings", Screen.Settings.route)
+        assertEquals("reset_activity", Screen.ResetActivity.route)
+        assertEquals("batch_finished", Screen.BatchFinished.route)
+        assertEquals("permission_disabled", Screen.PermissionDisabled.route)
+        assertEquals("offline", Screen.Offline.route)
+        assertEquals("first_day", Screen.FirstDay.route)
     }
 
     @Test

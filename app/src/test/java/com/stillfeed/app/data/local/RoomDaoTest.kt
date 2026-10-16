@@ -206,4 +206,47 @@ class RoomDaoTest {
         database.deviceBindingDao().clearDeviceBinding()
         assertNull(database.deviceBindingDao().getDeviceBinding())
     }
+
+    @Test
+    fun activeUnlockSessionDao_crudAndConstraints_behaveCorrectly() = runTest {
+        val now = System.currentTimeMillis()
+        val session = com.stillfeed.app.data.local.entity.ActiveUnlockSessionEntity(
+            id = "sess_01",
+            packageName = "com.instagram.android",
+            selectedBatchAllowance = 10,
+            remainingBatchAllowance = 10,
+            activityType = "FLIP_PHONE",
+            verifiedActivityCompletion = true,
+            createdAtMillis = now,
+            expiresAtMillis = now + 600_000L,
+            isIndeterminateTracking = false
+        )
+
+        // Insert
+        database.activeUnlockSessionDao().insertOrUpdate(session)
+
+        // Query by package
+        val retrieved = database.activeUnlockSessionDao().getSessionByPackage("com.instagram.android")
+        assertNotNull(retrieved)
+        assertEquals("sess_01", retrieved?.id)
+        assertEquals(10, retrieved?.remainingBatchAllowance)
+
+        // Upsert update (decrement remaining to 9)
+        val updated = session.copy(remainingBatchAllowance = 9, isIndeterminateTracking = true)
+        database.activeUnlockSessionDao().insertOrUpdate(updated)
+
+        val retrievedUpdated = database.activeUnlockSessionDao().getSessionByPackage("com.instagram.android")
+        assertEquals(9, retrievedUpdated?.remainingBatchAllowance)
+        assertTrue(retrievedUpdated?.isIndeterminateTracking == true)
+
+        // Synchronous read (used during process reconstruction)
+        val allSync = database.activeUnlockSessionDao().getAllSessionsSync()
+        assertEquals(1, allSync.size)
+        assertEquals("sess_01", allSync[0].id)
+
+        // Delete
+        database.activeUnlockSessionDao().deleteSessionByPackage("com.instagram.android")
+        assertNull(database.activeUnlockSessionDao().getSessionByPackage("com.instagram.android"))
+    }
 }
+

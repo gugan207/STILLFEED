@@ -12,7 +12,8 @@ import com.stillfeed.app.core.ui.theme.StillfeedTheme
 
 enum class StillfeedStatus {
     Protected,
-    NotConnected
+    NotConnected,
+    Offline
 }
 
 enum class StillfeedTagType {
@@ -21,7 +22,7 @@ enum class StillfeedTagType {
 }
 
 /**
- * STILLFEED Status Badge (e.g. for Protected / Not connected app status).
+ * STILLFEED Status Badge (e.g. for Protected / Not connected / Offline status).
  * Pill with 16dp corner radius, 32dp height, 10sp uppercase/bold text.
  */
 @Composable
@@ -39,6 +40,11 @@ fun StillfeedStatusBadge(
             StillfeedTheme.colors.statusInactiveBackground,
             StillfeedTheme.colors.statusInactiveText,
             "Not connected"
+        )
+        StillfeedStatus.Offline -> Triple(
+            StillfeedTheme.colors.surfaceVariant,
+            StillfeedTheme.colors.textSecondary,
+            "Offline"
         )
     }
 

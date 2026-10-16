@@ -10,6 +10,12 @@ interface AppPreferencesRepository {
     fun observePreferences(): Flow<AppPreferences>
     suspend fun getPreferences(): AppPreferences
     suspend fun setOnboardingCompleted(completed: Boolean)
+    suspend fun setOnboardingStep(step: Int) {
+        updatePreferences { it.copy(onboardingStep = step) }
+    }
+    suspend fun setDailyReelsAllowance(allowance: Int) {
+        updatePreferences { it.copy(dailyReelsAllowance = allowance) }
+    }
     suspend fun setFirstLaunch(isFirstLaunch: Boolean)
     suspend fun setQuickProtectionToggle(enabled: Boolean)
     suspend fun updatePreferences(transform: (AppPreferences) -> AppPreferences)

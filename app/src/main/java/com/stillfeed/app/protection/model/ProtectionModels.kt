@@ -19,7 +19,9 @@ data class AccessibilityWindowContext(
     val activeViewIds: Set<String> = emptySet(),
     val structuralTags: Set<String> = emptySet(),
     val windowId: Int = 0,
-    val timestampMillis: Long = System.currentTimeMillis()
+    val timestampMillis: Long = System.currentTimeMillis(),
+    val eventType: Int = 0,
+    val contentTransitionToken: String? = null
 ) {
     /**
      * Checks whether any of the collected view IDs contains the given [substring].
@@ -75,7 +77,10 @@ sealed class ProtectionDecision {
     data class Block(
         val packageName: String,
         val surfaceCategory: SurfaceCategory,
-        val reason: String
+        val reason: String,
+        val isBatchExpired: Boolean = false,
+        val batchAllowance: Int? = null,
+        val batchDurationMinutes: Int? = null
     ) : ProtectionDecision()
 
     /**

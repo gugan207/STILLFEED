@@ -100,13 +100,22 @@ class AccessibilityEventAdapter(
             }
         }
 
+        val eventType = event.eventType
+        val transitionToken = if (eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
+            "SCROLL_${event.windowId}_${event.fromIndex}_${event.itemCount}"
+        } else {
+            null
+        }
+
         return AccessibilityWindowContext(
             packageName = packageName,
             rootClassName = rootClassName,
             activeViewIds = activeViewIds,
             structuralTags = structuralTags,
             windowId = event.windowId,
-            timestampMillis = System.currentTimeMillis()
+            timestampMillis = System.currentTimeMillis(),
+            eventType = eventType,
+            contentTransitionToken = transitionToken
         )
     }
 

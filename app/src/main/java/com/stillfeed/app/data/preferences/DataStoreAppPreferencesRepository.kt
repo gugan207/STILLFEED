@@ -38,6 +38,18 @@ class DataStoreAppPreferencesRepository(
         }
     }
 
+    override suspend fun setOnboardingStep(step: Int) {
+        dataStore.edit { preferences ->
+            preferences[AppPreferencesKeys.ONBOARDING_STEP] = step
+        }
+    }
+
+    override suspend fun setDailyReelsAllowance(allowance: Int) {
+        dataStore.edit { preferences ->
+            preferences[AppPreferencesKeys.DAILY_REELS_ALLOWANCE] = allowance
+        }
+    }
+
     override suspend fun setFirstLaunch(isFirstLaunch: Boolean) {
         dataStore.edit { preferences ->
             preferences[AppPreferencesKeys.IS_FIRST_LAUNCH] = isFirstLaunch
@@ -57,10 +69,19 @@ class DataStoreAppPreferencesRepository(
             preferences[AppPreferencesKeys.IS_FIRST_LAUNCH] = updated.isFirstLaunch
             preferences[AppPreferencesKeys.HAS_COMPLETED_ONBOARDING] = updated.hasCompletedOnboarding
             preferences[AppPreferencesKeys.ONBOARDING_STEP] = updated.onboardingStep
+            preferences[AppPreferencesKeys.DAILY_REELS_ALLOWANCE] = updated.dailyReelsAllowance
             preferences[AppPreferencesKeys.QUICK_PROTECTION_TOGGLE] = updated.quickProtectionToggle
             preferences[AppPreferencesKeys.DAILY_REMINDER_ENABLED] = updated.dailyReminderEnabled
             preferences[AppPreferencesKeys.PREFERRED_THEME_MODE] = updated.preferredThemeMode
             preferences[AppPreferencesKeys.LAST_USAGE_SYNC_TIMESTAMP] = updated.lastUsageSyncTimestampMillis
+            preferences[AppPreferencesKeys.APP_LOCK_ENABLED] = updated.appLockEnabled
+            preferences[AppPreferencesKeys.BIOMETRIC_LOCK_ENABLED] = updated.biometricLockEnabled
+            preferences[AppPreferencesKeys.APP_LOCK_PIN] = updated.appLockPin
+            preferences[AppPreferencesKeys.AUTO_LOCK_TIMEOUT_MINUTES] = updated.autoLockTimeoutMinutes
+            preferences[AppPreferencesKeys.NOTIF_DAILY_SUMMARY] = updated.notifDailySummary
+            preferences[AppPreferencesKeys.NOTIF_WEEKLY_SUMMARY] = updated.notifWeeklySummary
+            preferences[AppPreferencesKeys.NOTIF_ACTIVITY_REMINDERS] = updated.notifActivityReminders
+            preferences[AppPreferencesKeys.QUIET_HOURS_ENABLED] = updated.quietHoursEnabled
         }
     }
 
@@ -75,10 +96,19 @@ class DataStoreAppPreferencesRepository(
             isFirstLaunch = preferences[AppPreferencesKeys.IS_FIRST_LAUNCH] ?: true,
             hasCompletedOnboarding = preferences[AppPreferencesKeys.HAS_COMPLETED_ONBOARDING] ?: false,
             onboardingStep = preferences[AppPreferencesKeys.ONBOARDING_STEP] ?: 0,
+            dailyReelsAllowance = preferences[AppPreferencesKeys.DAILY_REELS_ALLOWANCE] ?: 30,
             quickProtectionToggle = preferences[AppPreferencesKeys.QUICK_PROTECTION_TOGGLE] ?: false,
             dailyReminderEnabled = preferences[AppPreferencesKeys.DAILY_REMINDER_ENABLED] ?: true,
             preferredThemeMode = preferences[AppPreferencesKeys.PREFERRED_THEME_MODE] ?: "SYSTEM",
-            lastUsageSyncTimestampMillis = preferences[AppPreferencesKeys.LAST_USAGE_SYNC_TIMESTAMP] ?: 0L
+            lastUsageSyncTimestampMillis = preferences[AppPreferencesKeys.LAST_USAGE_SYNC_TIMESTAMP] ?: 0L,
+            appLockEnabled = preferences[AppPreferencesKeys.APP_LOCK_ENABLED] ?: false,
+            biometricLockEnabled = preferences[AppPreferencesKeys.BIOMETRIC_LOCK_ENABLED] ?: true,
+            appLockPin = preferences[AppPreferencesKeys.APP_LOCK_PIN] ?: "",
+            autoLockTimeoutMinutes = preferences[AppPreferencesKeys.AUTO_LOCK_TIMEOUT_MINUTES] ?: 1,
+            notifDailySummary = preferences[AppPreferencesKeys.NOTIF_DAILY_SUMMARY] ?: true,
+            notifWeeklySummary = preferences[AppPreferencesKeys.NOTIF_WEEKLY_SUMMARY] ?: true,
+            notifActivityReminders = preferences[AppPreferencesKeys.NOTIF_ACTIVITY_REMINDERS] ?: true,
+            quietHoursEnabled = preferences[AppPreferencesKeys.QUIET_HOURS_ENABLED] ?: true
         )
     }
 }
