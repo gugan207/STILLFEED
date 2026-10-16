@@ -57,7 +57,15 @@ fun SettingsScreen(
     onNavigateToInsights: () -> Unit,
     onNavigateToAwarenessSelection: () -> Unit,
     onSignOutOrDelete: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateToProfileSecurity: () -> Unit = {},
+    onNavigateToPrivacyCenter: () -> Unit = {},
+    onNavigateToAppLock: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
+    onNavigateToAppearance: () -> Unit = {},
+    onNavigateToSupport: () -> Unit = {},
+    onNavigateToDataExport: () -> Unit = {},
+    onNavigateToDeleteAccount: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -283,6 +291,62 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(StillfeedTheme.spacing.lg))
 
+            // MORE SETTINGS (Screens 22, 23, 25, 26, 31, 32)
+            Text(
+                text = "MORE SETTINGS",
+                style = StillfeedTheme.typography.label,
+                color = StillfeedTheme.colors.textSecondary
+            )
+            Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
+
+            SettingsNavRow(
+                title = "Profile & Security",
+                subtitle = "Name, password, and active devices",
+                onClick = onNavigateToProfileSecurity
+            )
+
+            Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
+
+            SettingsNavRow(
+                title = "Privacy Center",
+                subtitle = "Data storage policies and portable exports",
+                onClick = onNavigateToPrivacyCenter
+            )
+
+            Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
+
+            SettingsNavRow(
+                title = "App Lock",
+                subtitle = "Biometrics, backup PIN, and auto-lock delay",
+                onClick = onNavigateToAppLock
+            )
+
+            Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
+
+            SettingsNavRow(
+                title = "Notifications",
+                subtitle = "Summaries, reminders, and quiet hours",
+                onClick = onNavigateToNotifications
+            )
+
+            Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
+
+            SettingsNavRow(
+                title = "Appearance",
+                subtitle = "Light, dark, and system theme selection",
+                onClick = onNavigateToAppearance
+            )
+
+            Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
+
+            SettingsNavRow(
+                title = "Help & Support",
+                subtitle = "WhatsApp chat, email support, and FAQ",
+                onClick = onNavigateToSupport
+            )
+
+            Spacer(modifier = Modifier.height(StillfeedTheme.spacing.lg))
+
             // 2. PERMISSIONS REVIEW (Node 70:173 - 70:175)
             Text(
                 text = "Need to change access?",
@@ -412,5 +476,47 @@ private fun openSystemSettings(context: Context, uiState: SettingsUiState) {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
         context.startActivity(intent)
+    }
+}
+
+@Composable
+private fun SettingsNavRow(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(StillfeedTheme.colors.surface)
+            .clickable { onClick() }
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = StillfeedTheme.typography.titleSmall,
+                    color = StillfeedTheme.colors.textPrimary
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = StillfeedTheme.typography.caption,
+                    color = StillfeedTheme.colors.textSecondary
+                )
+            }
+            Text(
+                text = "›",
+                style = StillfeedTheme.typography.titleMedium,
+                color = StillfeedTheme.colors.textSecondary
+            )
+        }
     }
 }

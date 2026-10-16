@@ -19,11 +19,12 @@ import kotlinx.coroutines.launch
 
 enum class InterventionStep {
     BLOCKED_REEL,              // Screen 08 — Blocked Reel (39:162)
+    DM_REEL_BLOCKED,           // Screen 14 — Reel from DM Blocked (70:184)
     RESET_SELECTION,           // Screen 09 — Reset Activity list (64:7)
     RESET_IN_PROGRESS,         // Screen 09 — Interactive countdown execution
     AWARENESS_CARDS,           // Screen 10 — Awareness Cards reflection (64:46)
     UNLOCK_SELECTION,          // Screen 11 — Unlock batch choices (64:65)
-    BATCH_FINISHED             // Screen 15 — Daily Limit / Batch Finished (70:198)
+    BATCH_FINISHED             // Screen 15 — Daily Limit / Daily Finished (70:198)
 }
 
 data class InterventionUiState(
@@ -297,6 +298,10 @@ class InterventionViewModel(
         when (_uiState.value.currentStep) {
             InterventionStep.BLOCKED_REEL -> {
                 // Exit intervention without unlocking
+                return false
+            }
+            InterventionStep.DM_REEL_BLOCKED -> {
+                // Exit intervention without unlocking, back to messages
                 return false
             }
             InterventionStep.BATCH_FINISHED -> {

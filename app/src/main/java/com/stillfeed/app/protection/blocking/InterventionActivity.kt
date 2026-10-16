@@ -46,13 +46,14 @@ class InterventionActivity : ComponentActivity() {
         val blockedPackage = intent.getStringExtra(EXTRA_BLOCKED_PACKAGE) ?: ""
         val surfaceCategory = intent.getStringExtra(EXTRA_SURFACE_CATEGORY) ?: "Reel"
         val startStepName = intent.getStringExtra(EXTRA_START_STEP)
+        val isDmReel = surfaceCategory.contains("Direct", ignoreCase = true) || surfaceCategory.contains("DM", ignoreCase = true)
         val initialStep = startStepName?.let {
             try {
                 InterventionStep.valueOf(it)
             } catch (_: Exception) {
-                InterventionStep.BLOCKED_REEL
+                if (isDmReel) InterventionStep.DM_REEL_BLOCKED else InterventionStep.BLOCKED_REEL
             }
-        } ?: InterventionStep.BLOCKED_REEL
+        } ?: if (isDmReel) InterventionStep.DM_REEL_BLOCKED else InterventionStep.BLOCKED_REEL
 
         val batchAllowance = intent.getIntExtra(EXTRA_BATCH_ALLOWANCE, 0).takeIf { it > 0 }
         val batchDurationMinutes = intent.getIntExtra(EXTRA_BATCH_DURATION_MINUTES, 0).takeIf { it > 0 }
@@ -110,6 +111,11 @@ class InterventionActivity : ComponentActivity() {
                                 todayReelsCount = uiState.todayReelsCount,
                                 onChooseReset = { vm.onChooseReset() },
                                 onGoBack = { finish() }
+                            )
+                        }
+                        InterventionStep.DM_REEL_BLOCKED -> {
+                            com.stillfeed.app.protection.intervention.ui.Screen14DmReelBlocked(
+                                onBackToMessages = { finish() }
                             )
                         }
                         InterventionStep.RESET_SELECTION,

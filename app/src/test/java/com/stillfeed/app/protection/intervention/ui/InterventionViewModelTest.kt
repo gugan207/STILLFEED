@@ -311,12 +311,22 @@ class InterventionViewModelTest {
     fun loadTodayReelCount_countsOnlyVerifiedIndividualReelConsumption_withinLocalCalendarDay() = runTest {
         val fakeUsage = FakeUsageRepository()
         val now = System.currentTimeMillis()
+        val localMidnight = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        // Guarantee events are strictly within today's local calendar day and <= now
+        val event1Time = localMidnight + ((now - localMidnight) * 3 / 4).coerceAtLeast(1000L)
+        val event2Time = localMidnight + ((now - localMidnight) * 7 / 8).coerceAtLeast(2000L)
 
         // 1. Two verified individual Reel consumption events today
         fakeUsage.recordEvent(
             com.stillfeed.app.domain.model.UsageEvent(
                 id = "reel_event_1",
-                timestampMillis = now - 60_000L,
+                timestampMillis = event1Time,
                 packageName = "com.instagram.android",
                 surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
                 eventType = com.stillfeed.app.domain.model.UsageEventType.CONTENT_DETECTED,
@@ -327,7 +337,7 @@ class InterventionViewModelTest {
         fakeUsage.recordEvent(
             com.stillfeed.app.domain.model.UsageEvent(
                 id = "reel_event_2",
-                timestampMillis = now - 30_000L,
+                timestampMillis = event2Time,
                 packageName = "com.instagram.android",
                 surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
                 eventType = com.stillfeed.app.domain.model.UsageEventType.CONTENT_DETECTED,
@@ -350,12 +360,6 @@ class InterventionViewModelTest {
         )
 
         // 2. One event from yesterday (prior to local midnight)
-        val localMidnight = java.util.Calendar.getInstance().apply {
-            set(java.util.Calendar.HOUR_OF_DAY, 0)
-            set(java.util.Calendar.MINUTE, 0)
-            set(java.util.Calendar.SECOND, 0)
-            set(java.util.Calendar.MILLISECOND, 0)
-        }.timeInMillis
         fakeUsage.recordEvent(
             com.stillfeed.app.domain.model.UsageEvent(
                 id = "reel_event_yesterday",

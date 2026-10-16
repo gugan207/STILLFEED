@@ -1,6 +1,7 @@
 package com.stillfeed.app.feature.insights
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,7 +45,10 @@ fun InsightsScreen(
     viewModel: InsightsViewModel,
     onNavigateToHome: () -> Unit,
     modifier: Modifier = Modifier,
-    onNavigateToSettings: () -> Unit = {}
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToWeeklyReport: () -> Unit = {},
+    onNavigateToMonthlyReview: () -> Unit = {},
+    onNavigateToYearlyReport: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -368,6 +372,104 @@ fun InsightsScreen(
                                 color = StillfeedTheme.colors.textMuted
                             )
                         }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(StillfeedTheme.spacing.xl))
+
+                // 4. DETAILED REPORTS (Screens 19, 20, 21)
+                Text(
+                    text = "REPORTS & REVIEWS",
+                    style = StillfeedTheme.typography.label,
+                    color = StillfeedTheme.colors.textSecondary
+                )
+                Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
+
+                StillfeedCard(
+                    modifier = Modifier.clickable { onNavigateToWeeklyReport() }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Weekly Report",
+                                style = StillfeedTheme.typography.titleSmall,
+                                color = StillfeedTheme.colors.textPrimary
+                            )
+                            Text(
+                                text = "7-day pattern, best day, and changes",
+                                style = StillfeedTheme.typography.bodySmall,
+                                color = StillfeedTheme.colors.textSecondary
+                            )
+                        }
+                        Text(
+                            text = "›",
+                            style = StillfeedTheme.typography.titleMedium,
+                            color = StillfeedTheme.colors.textSecondary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
+
+                StillfeedCard(
+                    modifier = Modifier.clickable { onNavigateToMonthlyReview() }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Monthly Review",
+                                style = StillfeedTheme.typography.titleSmall,
+                                color = StillfeedTheme.colors.textPrimary
+                            )
+                            Text(
+                                text = "Evaluate rhythm and adjust allowance pace",
+                                style = StillfeedTheme.typography.bodySmall,
+                                color = StillfeedTheme.colors.textSecondary
+                            )
+                        }
+                        Text(
+                            text = "›",
+                            style = StillfeedTheme.typography.titleMedium,
+                            color = StillfeedTheme.colors.textSecondary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
+
+                StillfeedCard(
+                    modifier = Modifier.clickable { onNavigateToYearlyReport() }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Yearly Report",
+                                style = StillfeedTheme.typography.titleSmall,
+                                color = StillfeedTheme.colors.textPrimary
+                            )
+                            Text(
+                                text = "12-month long-term pattern and trend",
+                                style = StillfeedTheme.typography.bodySmall,
+                                color = StillfeedTheme.colors.textSecondary
+                            )
+                        }
+                        Text(
+                            text = "›",
+                            style = StillfeedTheme.typography.titleMedium,
+                            color = StillfeedTheme.colors.textSecondary
+                        )
                     }
                 }
             }

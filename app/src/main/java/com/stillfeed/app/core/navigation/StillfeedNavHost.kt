@@ -40,8 +40,26 @@ import com.stillfeed.app.feature.insights.InsightsScreen
 import com.stillfeed.app.feature.insights.InsightsViewModel
 import com.stillfeed.app.feature.onboarding.OnboardingScreen
 import com.stillfeed.app.feature.onboarding.OnboardingViewModel
+import com.stillfeed.app.feature.reports.MonthlyReviewScreen
+import com.stillfeed.app.feature.reports.ReportsViewModel
+import com.stillfeed.app.feature.reports.WeeklyReportScreen
+import com.stillfeed.app.feature.reports.YearlyReportScreen
 import com.stillfeed.app.feature.settings.SettingsScreen
+import com.stillfeed.app.feature.settings.SettingsUiState
 import com.stillfeed.app.feature.settings.SettingsViewModel
+import com.stillfeed.app.feature.settings.subscreens.ActiveSessionsScreen
+import com.stillfeed.app.feature.settings.subscreens.AppearanceSettingsScreen
+import com.stillfeed.app.feature.settings.subscreens.AppLockScreen
+import com.stillfeed.app.feature.settings.subscreens.ChangePasswordScreen
+import com.stillfeed.app.feature.settings.subscreens.DataExportReadyScreen
+import com.stillfeed.app.feature.settings.subscreens.DataExportScreen
+import com.stillfeed.app.feature.settings.subscreens.DeleteAccountScreen
+import com.stillfeed.app.feature.settings.subscreens.DeletionPendingScreen
+import com.stillfeed.app.feature.settings.subscreens.EditProfileScreen
+import com.stillfeed.app.feature.settings.subscreens.NotificationSettingsScreen
+import com.stillfeed.app.feature.settings.subscreens.PrivacyCenterScreen
+import com.stillfeed.app.feature.settings.subscreens.ProfileSecurityScreen
+import com.stillfeed.app.feature.settings.subscreens.SupportScreen
 import com.stillfeed.app.protection.accessibility.StillfeedAccessibilityService
 import com.stillfeed.app.protection.blocking.InterventionActivity
 import com.stillfeed.app.protection.intervention.ui.InterventionStep
@@ -120,6 +138,15 @@ fun StillfeedNavHost(
                 accessibilityPermissionChecker = it.accessibilityPermissionChecker,
                 usageStatsDataSource = it.usageStatsDataSource,
                 dataExportService = it.dataExportService
+            )
+        )
+    }
+
+    val resolvedReportsVm: ReportsViewModel? = app?.let {
+        viewModel(
+            factory = ReportsViewModel.provideFactory(
+                usageAggregator = it.usageAggregator,
+                appPreferencesRepository = it.appPreferencesRepository
             )
         )
     }
@@ -245,6 +272,15 @@ fun StillfeedNavHost(
                             },
                             onNavigateToSettings = {
                                 navigateToTab(Screen.Settings.route)
+                            },
+                            onNavigateToWeeklyReport = {
+                                navController.navigate(Screen.WeeklyReport.route)
+                            },
+                            onNavigateToMonthlyReview = {
+                                navController.navigate(Screen.MonthlyReview.route)
+                            },
+                            onNavigateToYearlyReport = {
+                                navController.navigate(Screen.YearlyReport.route)
                             }
                         )
                     }
@@ -265,6 +301,30 @@ fun StillfeedNavHost(
                             },
                             onSignOutOrDelete = {
                                 // Handled declaratively via authState transition to SignedOut
+                            },
+                            onNavigateToProfileSecurity = {
+                                navController.navigate(Screen.ProfileSecurity.route)
+                            },
+                            onNavigateToPrivacyCenter = {
+                                navController.navigate(Screen.PrivacyCenter.route)
+                            },
+                            onNavigateToAppLock = {
+                                navController.navigate(Screen.AppLock.route)
+                            },
+                            onNavigateToNotifications = {
+                                navController.navigate(Screen.NotificationSettings.route)
+                            },
+                            onNavigateToAppearance = {
+                                navController.navigate(Screen.AppearanceSettings.route)
+                            },
+                            onNavigateToSupport = {
+                                navController.navigate(Screen.Support.route)
+                            },
+                            onNavigateToDataExport = {
+                                navController.navigate(Screen.DataExport.route)
+                            },
+                            onNavigateToDeleteAccount = {
+                                navController.navigate(Screen.DeleteAccount.route)
                             }
                         )
                     }
@@ -379,6 +439,191 @@ fun StillfeedNavHost(
                         onNavigateToHome = { navigateToTab(Screen.Home.route) },
                         onNavigateToInsights = { navigateToTab(Screen.Insights.route) },
                         onNavigateToSettings = { navigateToTab(Screen.Settings.route) }
+                    )
+                }
+
+                // FLOW 05: Reports
+                composable(route = Screen.WeeklyReport.route) {
+                    resolvedReportsVm?.let { vm ->
+                        WeeklyReportScreen(
+                            viewModel = vm,
+                            onNavigateBack = { navController.popBackStack() },
+                            onNavigateToHome = { navigateToTab(Screen.Home.route) },
+                            onNavigateToInsights = { navigateToTab(Screen.Insights.route) },
+                            onNavigateToSettings = { navigateToTab(Screen.Settings.route) }
+                        )
+                    }
+                }
+
+                composable(route = Screen.MonthlyReview.route) {
+                    resolvedReportsVm?.let { vm ->
+                        MonthlyReviewScreen(
+                            viewModel = vm,
+                            onNavigateBack = { navController.popBackStack() },
+                            onNavigateToHome = { navigateToTab(Screen.Home.route) },
+                            onNavigateToInsights = { navigateToTab(Screen.Insights.route) },
+                            onNavigateToSettings = { navigateToTab(Screen.Settings.route) }
+                        )
+                    }
+                }
+
+                composable(route = Screen.YearlyReport.route) {
+                    resolvedReportsVm?.let { vm ->
+                        YearlyReportScreen(
+                            viewModel = vm,
+                            onNavigateBack = { navController.popBackStack() },
+                            onNavigateToHome = { navigateToTab(Screen.Home.route) },
+                            onNavigateToInsights = { navigateToTab(Screen.Insights.route) },
+                            onNavigateToSettings = { navigateToTab(Screen.Settings.route) }
+                        )
+                    }
+                }
+
+                // FLOW 06: Account & Privacy
+                composable(route = Screen.ProfileSecurity.route) {
+                    val settingsState by (resolvedSettingsVm?.uiState?.collectAsState() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(SettingsUiState()) })
+                    ProfileSecurityScreen(
+                        currentUser = settingsState.currentUser,
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToEditProfile = { navController.navigate(Screen.EditProfile.route) },
+                        onNavigateToChangePassword = { navController.navigate(Screen.ChangePassword.route) },
+                        onNavigateToActiveSessions = { navController.navigate(Screen.ActiveSessions.route) }
+                    )
+                }
+
+                composable(route = Screen.PrivacyCenter.route) {
+                    PrivacyCenterScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToDataExport = { navController.navigate(Screen.DataExport.route) },
+                        onNavigateToDeleteAccount = { navController.navigate(Screen.DeleteAccount.route) }
+                    )
+                }
+
+                composable(route = Screen.DataExport.route) {
+                    val settingsState by (resolvedSettingsVm?.uiState?.collectAsState() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(SettingsUiState()) })
+                    DataExportScreen(
+                        isExporting = settingsState.isExporting,
+                        onPrepareExport = {
+                            resolvedSettingsVm?.exportData()
+                            navController.navigate(Screen.DataExportReady.route)
+                        },
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(route = Screen.DataExportReady.route) {
+                    val settingsState by (resolvedSettingsVm?.uiState?.collectAsState() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(SettingsUiState()) })
+                    DataExportReadyScreen(
+                        exportJson = settingsState.exportJsonResult,
+                        onNavigateBack = {
+                            navController.navigate(Screen.Settings.route) {
+                                popUpTo(Screen.Settings.route) { inclusive = false }
+                            }
+                        }
+                    )
+                }
+
+                // FLOW 07: Security & Support
+                composable(route = Screen.AppLock.route) {
+                    val settingsState by (resolvedSettingsVm?.uiState?.collectAsState() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(SettingsUiState()) })
+                    AppLockScreen(
+                        appLockEnabled = settingsState.appLockEnabled,
+                        biometricEnabled = settingsState.biometricLockEnabled,
+                        pinConfigured = true,
+                        autoLockTimeoutMinutes = settingsState.autoLockTimeoutMinutes,
+                        onToggleAppLock = { resolvedSettingsVm?.setAppLockEnabled(it) },
+                        onToggleBiometric = { resolvedSettingsVm?.setBiometricLockEnabled(it) },
+                        onSelectAutoLockTimeout = { resolvedSettingsVm?.setAutoLockTimeoutMinutes(it) },
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(route = Screen.Support.route) {
+                    SupportScreen(
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+
+                // FLOW 08: Deletion
+                composable(route = Screen.DeleteAccount.route) {
+                    val settingsState by (resolvedSettingsVm?.uiState?.collectAsState() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(SettingsUiState()) })
+                    DeleteAccountScreen(
+                        isDeleting = settingsState.isDeletingAccount,
+                        onConfirmDelete = {
+                            resolvedSettingsVm?.deleteAccountAndData()
+                            navController.navigate(Screen.DeletionPending.route) {
+                                popUpTo(Screen.Home.route) { inclusive = true }
+                            }
+                        },
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(route = Screen.DeletionPending.route) {
+                    DeletionPendingScreen(
+                        onExitApp = {
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.Home.route) { inclusive = true }
+                            }
+                        }
+                    )
+                }
+
+                // FLOW 09: Supporting Settings States
+                composable(route = Screen.EditProfile.route) {
+                    val settingsState by (resolvedSettingsVm?.uiState?.collectAsState() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(SettingsUiState()) })
+                    EditProfileScreen(
+                        currentUser = settingsState.currentUser,
+                        onSaveProfile = { newName ->
+                            resolvedSettingsVm?.updateDisplayName(newName)
+                        },
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(route = Screen.ChangePassword.route) {
+                    ChangePasswordScreen(
+                        onUpdatePassword = { newPass ->
+                            resolvedSettingsVm?.updatePassword(newPass)
+                        },
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(route = Screen.NotificationSettings.route) {
+                    val settingsState by (resolvedSettingsVm?.uiState?.collectAsState() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(SettingsUiState()) })
+                    NotificationSettingsScreen(
+                        dailySummary = settingsState.notifDailySummary,
+                        weeklySummary = settingsState.notifWeeklySummary,
+                        activityReminders = settingsState.notifActivityReminders,
+                        quietHours = settingsState.quietHoursEnabled,
+                        onToggleDailySummary = { resolvedSettingsVm?.setNotifDailySummary(it) },
+                        onToggleWeeklySummary = { resolvedSettingsVm?.setNotifWeeklySummary(it) },
+                        onToggleActivityReminders = { resolvedSettingsVm?.setNotifActivityReminders(it) },
+                        onToggleQuietHours = { resolvedSettingsVm?.setQuietHoursEnabled(it) },
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(route = Screen.AppearanceSettings.route) {
+                    val settingsState by (resolvedSettingsVm?.uiState?.collectAsState() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(SettingsUiState()) })
+                    AppearanceSettingsScreen(
+                        currentThemeMode = settingsState.preferredThemeMode,
+                        onSelectTheme = { theme ->
+                            resolvedSettingsVm?.setThemeMode(theme)
+                        },
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(route = Screen.ActiveSessions.route) {
+                    val settingsState by (resolvedSettingsVm?.uiState?.collectAsState() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(SettingsUiState()) })
+                    ActiveSessionsScreen(
+                        currentUser = settingsState.currentUser,
+                        onSignOut = {
+                            resolvedSettingsVm?.signOut()
+                        },
+                        onNavigateBack = { navController.popBackStack() }
                     )
                 }
 
