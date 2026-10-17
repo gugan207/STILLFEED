@@ -52,6 +52,17 @@ class StillfeedAccessibilityService : AccessibilityService() {
         if (app != null && protectionEngine == null) {
             protectionEngine = app.protectionEngine
         }
+        app?.instagramReelsTracker?.onLimitReached = { count, isBatch, batchAllowance ->
+            val decision = com.stillfeed.app.protection.model.ProtectionDecision.Block(
+                packageName = "com.instagram.android",
+                surfaceCategory = com.stillfeed.app.domain.model.SurfaceCategory.REELS,
+                reason = if (isBatch) "Batch finished ($batchAllowance reels)" else "Daily reels allowance reached ($count)",
+                isBatchExpired = isBatch,
+                batchAllowance = batchAllowance,
+                batchDurationMinutes = null
+            )
+            interventionCoordinator.executeIntervention(this, decision)
+        }
         app?.widgetUpdateCoordinator?.requestUpdate()
     }
 

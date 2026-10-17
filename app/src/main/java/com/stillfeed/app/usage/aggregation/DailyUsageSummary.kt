@@ -13,5 +13,6 @@ data class DailyUsageSummary(
     val youtubeUsageMillis: Long,
     val totalMonitoredMillis: Long,
     val blockedInterventionCount: Int,
-    val sessionCount: Int
+    val sessionCount: Int,
+    val verifiedReelsCount: Int? = null
 )

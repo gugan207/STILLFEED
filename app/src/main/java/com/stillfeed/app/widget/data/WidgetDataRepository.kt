@@ -68,9 +68,8 @@ class WidgetDataRepository(
         }
 
         // USAGE DATA HONESTY:
-        // Reel count is null when unmeasured, causing the widget to display em-dash ("—").
-        // We never fabricate reel numbers or derive them from duration.
-        val reelCount: Int? = null
+        // Use verified organic reel count from today's tracked events
+        val reelCount: Int? = todaySummary?.verifiedReelsCount
 
         return WidgetUiState(
             theme = theme,

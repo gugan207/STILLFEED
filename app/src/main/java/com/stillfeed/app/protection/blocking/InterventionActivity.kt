@@ -22,6 +22,12 @@ import com.stillfeed.app.protection.intervention.ui.Screen09ResetActivity
 import com.stillfeed.app.protection.intervention.ui.Screen10AwarenessCards
 import com.stillfeed.app.protection.intervention.ui.Screen11UnlockSelection
 
+import android.content.Context
+import android.os.Build
+import android.os.PowerManager
+import android.view.WindowManager
+import androidx.compose.runtime.DisposableEffect
+
 /**
  * Production intervention activity orchestrating the complete Figma intervention journey (STEP 19).
  *
@@ -42,6 +48,18 @@ class InterventionActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val blockedPackage = intent.getStringExtra(EXTRA_BLOCKED_PACKAGE) ?: ""
         val surfaceCategory = intent.getStringExtra(EXTRA_SURFACE_CATEGORY) ?: "Reel"
@@ -82,6 +100,37 @@ class InterventionActivity : ComponentActivity() {
                 )
 
                 val uiState by vm.uiState.collectAsState()
+
+                // Keep CPU awake while reset countdown is running (even if screen turns off while face down)
+                val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+                DisposableEffect(uiState.isActivityTimerRunning) {
+                    val wakeLock = if (uiState.isActivityTimerRunning) {
+                        powerManager?.newWakeLock(
+                            PowerManager.PARTIAL_WAKE_LOCK,
+                            "stillfeed:reset_countdown"
+                        )?.apply {
+                            acquire(60_000L) // 60s max safety timeout for 30s reset
+                        }
+                    } else null
+
+                    onDispose {
+                        try {
+                            if (wakeLock?.isHeld == true) {
+                                wakeLock.release()
+                            }
+                        } catch (_: Exception) {}
+                    }
+                }
+
+                // When reset completes, wake screen and turn on display so Awareness Cards are immediately visible
+                LaunchedEffect(uiState.isActivityCompleted) {
+                    if (uiState.isActivityCompleted) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                            setTurnScreenOn(true)
+                        }
+                        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    }
+                }
 
                 // Intercept hardware/system back button
                 BackHandler {

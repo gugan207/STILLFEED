@@ -26,12 +26,12 @@ class FloatingPositionManager(
      */
     fun calculateSafeBounds(viewWidth: Int, viewHeight: Int): ScreenBounds {
         val screenSize = getScreenDimensions()
-        val statusBarHeight = getStatusBarHeight()
+        val topClearance = getTopCutoutOrStatusBarHeight()
         val navBarHeight = getNavigationBarHeight()
 
         val minX = 0
         val maxX = max(0, screenSize.x - viewWidth)
-        val minY = statusBarHeight + dpToPx(8)
+        val minY = topClearance + dpToPx(4)
         val maxY = max(minY, screenSize.y - navBarHeight - viewHeight - dpToPx(8))
 
         return ScreenBounds(minX = minX, maxX = maxX, minY = minY, maxY = maxY)
@@ -48,14 +48,14 @@ class FloatingPositionManager(
     }
 
     /**
-     * Returns the default top-centered position matching the reference layout.
+     * Returns the default top-centered position placed directly below the front camera punch hole / cutout.
      */
     fun getDefaultPosition(viewWidth: Int, viewHeight: Int): Position {
         val screenSize = getScreenDimensions()
-        val statusBarHeight = getStatusBarHeight()
+        val topClearance = getTopCutoutOrStatusBarHeight()
 
         val defaultX = (screenSize.x - viewWidth) / 2
-        val defaultY = statusBarHeight + dpToPx(24)
+        val defaultY = topClearance + dpToPx(8)
 
         return clamp(Position(defaultX, defaultY), viewWidth, viewHeight)
     }
@@ -113,6 +113,22 @@ class FloatingPositionManager(
             display.getRealSize(point)
         }
         return point
+    }
+
+    private fun getTopCutoutOrStatusBarHeight(): Int {
+        var top = 0
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val insets = windowManager.currentWindowMetrics.windowInsets
+                val cutoutTop = insets.displayCutout?.safeInsetTop ?: 0
+                val statusBars = insets.getInsetsIgnoringVisibility(android.view.WindowInsets.Type.statusBars()).top
+                top = max(cutoutTop, statusBars)
+            } catch (_: Exception) {}
+        }
+        if (top <= 0) {
+            top = getStatusBarHeight()
+        }
+        return max(top, dpToPx(32))
     }
 
     private fun getStatusBarHeight(): Int {

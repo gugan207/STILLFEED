@@ -75,6 +75,8 @@ class UsageAggregator(
             .sumOf { it.durationMillis ?: 0L }
 
         val blockedCount = events.count { it.isBlocked || it.eventType == UsageEventType.BLOCKED }
+        val reelEvents = events.filter { it.metadata == "INDIVIDUAL_REEL_CONSUMED" }
+        val verifiedReels: Int? = if (reelEvents.isEmpty()) null else reelEvents.size
 
         return DailyUsageSummary(
             dateString = dateString,
@@ -82,7 +84,8 @@ class UsageAggregator(
             youtubeUsageMillis = youtubeMillis,
             totalMonitoredMillis = instagramMillis + youtubeMillis,
             blockedInterventionCount = blockedCount,
-            sessionCount = sessions.size
+            sessionCount = sessions.size,
+            verifiedReelsCount = verifiedReels
         )
     }
 }

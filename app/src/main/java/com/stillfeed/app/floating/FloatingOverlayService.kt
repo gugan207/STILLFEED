@@ -296,9 +296,9 @@ class FloatingOverlayService : Service() {
             val isProtection = protectionState?.isEnabled ?: true
             val isAnimations = prefs?.floatingCompanionAnimationsEnabled ?: true
 
-            // DATA HONESTY: Reel count uses measured activeReelCount, or null when unmeasured (showing "—")
+            val currentReels = activeReelCount ?: app.instagramReelsTracker.getCurrentCount()
             val (displayVal, progressRatio) = BrainMoodResolver.resolveDisplayAndProgress(
-                reelCount = activeReelCount,
+                reelCount = currentReels,
                 monitoredMinutes = monitoredMinutes,
                 dailyAllowance = allowance
             )
