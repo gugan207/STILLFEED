@@ -75,7 +75,8 @@ class InterventionActivity : ComponentActivity() {
                             initialBatchDurationMinutes = batchDurationMinutes,
                             resetSensorManager = com.stillfeed.app.protection.sensor.ResetSensorManager(this@InterventionActivity),
                             onResetReelCount = { it.instagramReelsTracker.resetCount() },
-                            initialReelCount = initialReelsCount
+                            initialReelCount = initialReelsCount,
+                            resetSoundPlayer = com.stillfeed.app.protection.sound.ResetSoundPlayer(this@InterventionActivity)
                         )
                     } ?: throw IllegalStateException("StillfeedApplication must be initialized.")
                 )

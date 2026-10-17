@@ -45,6 +45,7 @@ class AccessibilityEventAdapter(
         if (rootClassName != null) {
             structuralTags.add(rootClassName)
         }
+        event.contentDescription?.toString()?.let { structuralTags.add(it) }
 
         // If a root node is available, extract structural resource IDs safely
         if (rootNode != null) {
@@ -66,6 +67,11 @@ class AccessibilityEventAdapter(
                     // Extract class name (structural identifier)
                     node.className?.let { className ->
                         structuralTags.add(className.toString())
+                    }
+
+                    // Extract content description (e.g. "Reels, tab, 4 of 5" structural indicator)
+                    node.contentDescription?.let { desc ->
+                        structuralTags.add(desc.toString())
                     }
 
                     val childCount = node.childCount
@@ -120,7 +126,7 @@ class AccessibilityEventAdapter(
     }
 
     companion object {
-        const val DEFAULT_MAX_DEPTH = 10
-        const val DEFAULT_MAX_NODES = 40
+        const val DEFAULT_MAX_DEPTH = 16
+        const val DEFAULT_MAX_NODES = 120
     }
 }

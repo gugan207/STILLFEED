@@ -61,10 +61,10 @@ class FloatingCompanionView @JvmOverloads constructor(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    allowFileAccess = true // restricted to android_asset
-                    allowContentAccess = false
-                    allowFileAccessFromFileURLs = false
-                    allowUniversalAccessFromFileURLs = false
+                    allowFileAccess = true
+                    allowContentAccess = true
+                    allowFileAccessFromFileURLs = true
+                    allowUniversalAccessFromFileURLs = true
                     cacheMode = WebSettings.LOAD_NO_CACHE
                 }
 

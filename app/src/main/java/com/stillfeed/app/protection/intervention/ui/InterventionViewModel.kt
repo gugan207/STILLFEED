@@ -77,7 +77,8 @@ class InterventionViewModel(
     initialBatchDurationMinutes: Int? = null,
     private val resetSensorManager: ResetSensorManager? = null,
     private val onResetReelCount: (() -> Unit)? = null,
-    initialReelCount: Int? = null
+    initialReelCount: Int? = null,
+    private val resetSoundPlayer: com.stillfeed.app.protection.sound.ResetSoundPlayer? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -228,12 +229,17 @@ class InterventionViewModel(
                             }
                             if (timerJob?.isActive != true) {
                                 timerJob = viewModelScope.launch {
+                                    resetSoundPlayer?.playTick()
                                     while (currentRemaining > 0) {
                                         delay(1000L)
                                         currentRemaining--
                                         _uiState.update { it.copy(activityRemainingSeconds = currentRemaining) }
+                                        if (currentRemaining > 0) {
+                                            resetSoundPlayer?.playTick()
+                                        }
                                     }
                                     // Completed while face down!
+                                    resetSoundPlayer?.playCompletion()
                                     resetSensorManager.stopListening()
                                     _uiState.update {
                                         it.copy(
@@ -281,11 +287,16 @@ class InterventionViewModel(
             // General timer for other activities; if interrupted, restarts from first
             var remaining = duration
             timerJob = viewModelScope.launch {
+                resetSoundPlayer?.playTick()
                 while (remaining > 0) {
                     delay(1000L)
                     remaining--
                     _uiState.update { it.copy(activityRemainingSeconds = remaining) }
+                    if (remaining > 0) {
+                        resetSoundPlayer?.playTick()
+                    }
                 }
+                resetSoundPlayer?.playCompletion()
                 _uiState.update {
                     it.copy(
                         isActivityTimerRunning = false,
@@ -459,6 +470,7 @@ class InterventionViewModel(
         sensorJob?.cancel()
         cardHoldJob?.cancel()
         resetSensorManager?.stopListening()
+        resetSoundPlayer?.release()
     }
 
     companion object {
@@ -474,7 +486,8 @@ class InterventionViewModel(
             initialBatchDurationMinutes: Int? = null,
             resetSensorManager: ResetSensorManager? = null,
             onResetReelCount: (() -> Unit)? = null,
-            initialReelCount: Int? = null
+            initialReelCount: Int? = null,
+            resetSoundPlayer: com.stillfeed.app.protection.sound.ResetSoundPlayer? = null
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -488,7 +501,8 @@ class InterventionViewModel(
                     initialBatchDurationMinutes = initialBatchDurationMinutes,
                     resetSensorManager = resetSensorManager,
                     onResetReelCount = onResetReelCount,
-                    initialReelCount = initialReelCount
+                    initialReelCount = initialReelCount,
+                    resetSoundPlayer = resetSoundPlayer
                 ) as T
             }
         }

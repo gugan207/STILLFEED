@@ -147,42 +147,44 @@ class FloatingOverlayService : Service() {
     @SuppressLint("ClickableViewAccessibility")
     private fun setupFloatingView() {
         val wm = windowManager ?: return
+        if (companionView != null) return
 
-        serviceScope.launch {
-            val initialPos = positionManager.resolveInitialPosition(overlayWidth, overlayHeight)
+        val defaultPos = positionManager.getDefaultPosition(overlayWidth, overlayHeight)
 
-            val params = WindowManager.LayoutParams(
-                overlayWidth,
-                overlayHeight,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                PixelFormat.TRANSLUCENT
-            ).apply {
-                gravity = Gravity.TOP or Gravity.START
-                x = initialPos.x
-                y = initialPos.y
+        val params = WindowManager.LayoutParams(
+            overlayWidth,
+            overlayHeight,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = defaultPos.x
+            y = defaultPos.y
+        }
+        layoutParams = params
+
+        val view = FloatingCompanionView(this@FloatingOverlayService).apply {
+            onIconClickListener = {
+                openStillfeedResetOrHome()
             }
-            layoutParams = params
+            visibility = if (isReelsActive) View.VISIBLE else View.GONE
+        }
+        companionView = view
 
-            val view = FloatingCompanionView(this@FloatingOverlayService).apply {
-                onIconClickListener = {
-                    openStillfeedResetOrHome()
-                }
-                if (!isReelsActive) {
-                    visibility = View.GONE
-                }
+        setupTouchListener(view, params, wm)
+
+        try {
+            wm.addView(view, params)
+            if (isReelsActive) {
+                view.visibility = View.VISIBLE
+                view.resume()
+                refreshData()
             }
-            companionView = view
-
-            setupTouchListener(view, params, wm)
-
-            try {
-                wm.addView(view, params)
-            } catch (e: Exception) {
-                // Handle WindowManager permission revocation or addView failure
-                stopSelf()
-            }
+        } catch (e: Exception) {
+            // Handle WindowManager permission revocation or addView failure
+            stopSelf()
         }
     }
 
@@ -264,7 +266,7 @@ class FloatingOverlayService : Service() {
         // 1. Observe App Preferences for feature toggle
         serviceScope.launch {
             app.appPreferencesRepository.observePreferences().collectLatest { prefs ->
-                if (!prefs.floatingCompanionEnabled) {
+                if (!prefs.floatingCompanionEnabled && !isReelsActive) {
                     stopOverlay()
                     return@collectLatest
                 }

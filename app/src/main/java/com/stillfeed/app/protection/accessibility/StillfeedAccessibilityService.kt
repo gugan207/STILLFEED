@@ -63,9 +63,9 @@ class StillfeedAccessibilityService : AccessibilityService() {
 
         val app = applicationContext as? StillfeedApplication
 
-        // If user is outside Instagram, notify companion controller to hide overlay
+        // If user is outside Instagram, notify tracker to immediately hide overlay
         if (packageName != "com.instagram.android") {
-            app?.floatingIconController?.setReelsActive(false)
+            app?.instagramReelsTracker?.setInactiveImmediate()
         }
 
         // Fast rejection: Only process monitored apps (Instagram & YouTube)
@@ -114,14 +114,14 @@ class StillfeedAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {
         eventDebouncer.reset()
-        (applicationContext as? StillfeedApplication)?.floatingIconController?.setReelsActive(false)
+        (applicationContext as? StillfeedApplication)?.instagramReelsTracker?.setInactiveImmediate()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false
         val app = applicationContext as? StillfeedApplication
-        app?.floatingIconController?.setReelsActive(false)
+        app?.instagramReelsTracker?.setInactiveImmediate()
         app?.widgetUpdateCoordinator?.requestUpdate()
         serviceScope.cancel()
     }

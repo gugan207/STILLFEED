@@ -99,9 +99,19 @@ class InstagramSurfaceClassifier : SurfaceClassifier {
             "reel_viewer_clips_item",
             "clips_viewer",
             "ClipsViewerActivity",
+            "TransparentModalActivity",
             "reels_tab",
             "clips_tab",
-            "clips_item_container"
+            "clips_item_container",
+            "clips_root",
+            "clips_author",
+            "clips_audio",
+            "clips_like",
+            "clips_comment",
+            "clips",
+            "reels",
+            "feed_video",
+            "video_container"
         )
 
         /**

@@ -113,7 +113,7 @@ class DataStoreAppPreferencesRepository(
             notifWeeklySummary = preferences[AppPreferencesKeys.NOTIF_WEEKLY_SUMMARY] ?: true,
             notifActivityReminders = preferences[AppPreferencesKeys.NOTIF_ACTIVITY_REMINDERS] ?: true,
             quietHoursEnabled = preferences[AppPreferencesKeys.QUIET_HOURS_ENABLED] ?: true,
-            floatingCompanionEnabled = preferences[AppPreferencesKeys.FLOATING_COMPANION_ENABLED] ?: false,
+            floatingCompanionEnabled = preferences[AppPreferencesKeys.FLOATING_COMPANION_ENABLED] ?: true,
             floatingCompanionAnimationsEnabled = preferences[AppPreferencesKeys.FLOATING_COMPANION_ANIMATIONS_ENABLED] ?: true,
             floatingCompanionPositionX = preferences[AppPreferencesKeys.FLOATING_COMPANION_POS_X] ?: -1,
             floatingCompanionPositionY = preferences[AppPreferencesKeys.FLOATING_COMPANION_POS_Y] ?: -1

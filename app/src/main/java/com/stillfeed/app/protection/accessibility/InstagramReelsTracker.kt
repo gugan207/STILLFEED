@@ -17,6 +17,7 @@ class InstagramReelsTracker(
     private var lastScrollTimestamp = 0L
     private var lastReelSignature: String? = null
     private var isCurrentlyInReels = false
+    private var lastReelsDetectedTimestamp = 0L
 
     /**
      * Evaluates accessibility events from Instagram.
@@ -26,13 +27,19 @@ class InstagramReelsTracker(
         rootNode: AccessibilityNodeInfo?,
         isReelsSurface: Boolean
     ) {
+        val now = System.currentTimeMillis()
+
         if (!isReelsSurface) {
-            if (isCurrentlyInReels) {
+            // Exit debouncing: Do not drop Reels state on single transient subview events
+            // Only deactivate if no Reels signals have been seen for REELS_EXIT_TIMEOUT_MS
+            if (isCurrentlyInReels && (now - lastReelsDetectedTimestamp > REELS_EXIT_TIMEOUT_MS)) {
                 isCurrentlyInReels = false
                 floatingIconController.setReelsActive(false)
             }
             return
         }
+
+        lastReelsDetectedTimestamp = now
 
         // Entering or currently in Reels: show floating companion in top-center of Reels
         if (!isCurrentlyInReels) {
@@ -48,7 +55,6 @@ class InstagramReelsTracker(
             return
         }
 
-        val now = System.currentTimeMillis()
         val isScroll = event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED
         val isWindowChange = event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
 
@@ -76,6 +82,14 @@ class InstagramReelsTracker(
         reelCounter.set(0)
         lastReelSignature = null
         floatingIconController.updateReelCount(0)
+    }
+
+    /**
+     * Immediately deactivates reels state and hides the floating companion.
+     */
+    fun setInactiveImmediate() {
+        isCurrentlyInReels = false
+        floatingIconController.setReelsActive(false)
     }
 
     /**
@@ -160,6 +174,7 @@ class InstagramReelsTracker(
     companion object {
         private const val MIN_REEL_INTERVAL_MS = 1400L
         private const val MIN_SCROLL_INTERVAL_MS = 2000L
+        private const val REELS_EXIT_TIMEOUT_MS = 2500L
 
         val AD_CTA_TEXTS = setOf(
             "Sponsored",

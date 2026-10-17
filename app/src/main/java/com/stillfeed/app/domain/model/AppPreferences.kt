@@ -23,7 +23,7 @@ data class AppPreferences(
     val notifWeeklySummary: Boolean = true,
     val notifActivityReminders: Boolean = true,
     val quietHoursEnabled: Boolean = true,
-    val floatingCompanionEnabled: Boolean = false,
+    val floatingCompanionEnabled: Boolean = true,
     val floatingCompanionAnimationsEnabled: Boolean = true,
     val floatingCompanionPositionX: Int = -1,
     val floatingCompanionPositionY: Int = -1
