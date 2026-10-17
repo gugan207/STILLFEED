@@ -9,6 +9,8 @@ import com.stillfeed.app.domain.repository.UsageRepository
 import com.stillfeed.app.protection.intervention.model.AwarenessCard
 import com.stillfeed.app.protection.intervention.model.AwarenessCardCatalog
 import com.stillfeed.app.protection.intervention.model.ResetActivityType
+import com.stillfeed.app.protection.sensor.PhoneOrientationState
+import com.stillfeed.app.protection.sensor.ResetSensorManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,10 +41,15 @@ data class InterventionUiState(
     val isActivityTimerRunning: Boolean = false,
     val activityRemainingSeconds: Int = 30,
     val isActivityCompleted: Boolean = false,
+    // Sensor Flip Phone State
+    val isPhoneFaceDown: Boolean = false,
+    val phoneRemovedNotice: String? = null,
     // Step 10 Awareness Cards State
     val currentCardIndex: Int = 0,
     val cards: List<AwarenessCard> = AwarenessCardCatalog.cards,
     val isCardReflectionComplete: Boolean = false,
+    val cardHoldRemainingSeconds: Int = 2,
+    val isCardHoldActive: Boolean = true,
     // Step 11 Unlock Selection State
     val selectedBatchAllowance: Int = 20,
     val isSubmittingUnlock: Boolean = false,
@@ -67,7 +74,10 @@ class InterventionViewModel(
     initialSurface: String = "Reel",
     private val initialStep: InterventionStep = InterventionStep.BLOCKED_REEL,
     initialBatchAllowance: Int? = null,
-    initialBatchDurationMinutes: Int? = null
+    initialBatchDurationMinutes: Int? = null,
+    private val resetSensorManager: ResetSensorManager? = null,
+    private val onResetReelCount: (() -> Unit)? = null,
+    initialReelCount: Int? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -82,9 +92,15 @@ class InterventionViewModel(
     val uiState: StateFlow<InterventionUiState> = _uiState.asStateFlow()
 
     private var timerJob: Job? = null
+    private var sensorJob: Job? = null
+    private var cardHoldJob: Job? = null
 
     init {
-        loadTodayReelCount()
+        if (initialReelCount != null && initialReelCount > 0) {
+            _uiState.update { it.copy(todayReelsCount = initialReelCount) }
+        } else {
+            loadTodayReelCount()
+        }
     }
 
     private fun loadTodayReelCount() {
@@ -177,6 +193,7 @@ class InterventionViewModel(
                     currentStep = InterventionStep.AWARENESS_CARDS
                 )
             }
+            startCardHoldTimer()
             return
         }
 
@@ -186,38 +203,116 @@ class InterventionViewModel(
                 currentStep = InterventionStep.RESET_IN_PROGRESS,
                 isActivityTimerRunning = true,
                 activityRemainingSeconds = duration,
-                isActivityCompleted = false
+                isActivityCompleted = false,
+                isPhoneFaceDown = false,
+                phoneRemovedNotice = null
             )
         }
 
         timerJob?.cancel()
-        timerJob = viewModelScope.launch {
+        sensorJob?.cancel()
+
+        if (activity != ResetActivityType.AWARENESS_CARDS && resetSensorManager != null) {
+            resetSensorManager.startListening()
+            var currentRemaining = duration
+
+            sensorJob = viewModelScope.launch {
+                resetSensorManager.orientationState.collect { orientation ->
+                    when (orientation) {
+                        PhoneOrientationState.FACE_DOWN -> {
+                            _uiState.update {
+                                it.copy(
+                                    isPhoneFaceDown = true,
+                                    phoneRemovedNotice = null
+                                )
+                            }
+                            if (timerJob?.isActive != true) {
+                                timerJob = viewModelScope.launch {
+                                    while (currentRemaining > 0) {
+                                        delay(1000L)
+                                        currentRemaining--
+                                        _uiState.update { it.copy(activityRemainingSeconds = currentRemaining) }
+                                    }
+                                    // Completed while face down!
+                                    resetSensorManager.stopListening()
+                                    _uiState.update {
+                                        it.copy(
+                                            isActivityTimerRunning = false,
+                                            isActivityCompleted = true
+                                        )
+                                    }
+                                    delay(600L)
+                                    _uiState.update { it.copy(currentStep = InterventionStep.AWARENESS_CARDS) }
+                                    startCardHoldTimer()
+                                }
+                            }
+                        }
+                        PhoneOrientationState.REMOVED_FROM_SURFACE -> {
+                            // Rule: "if we remove the phone we need to start from first and as same as all activitys"
+                            timerJob?.cancel()
+                            timerJob = null
+                            currentRemaining = duration
+                            _uiState.update {
+                                it.copy(
+                                    isPhoneFaceDown = false,
+                                    activityRemainingSeconds = duration,
+                                    phoneRemovedNotice = "Phone lifted! Place phone face down to start over from ${duration}s."
+                                )
+                            }
+                        }
+                        else -> {
+                            if (_uiState.value.isPhoneFaceDown) {
+                                timerJob?.cancel()
+                                timerJob = null
+                                currentRemaining = duration
+                                _uiState.update {
+                                    it.copy(
+                                        isPhoneFaceDown = false,
+                                        activityRemainingSeconds = duration,
+                                        phoneRemovedNotice = "Phone moved! Place phone face down to start over from ${duration}s."
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // General timer for other activities; if interrupted, restarts from first
             var remaining = duration
-            while (remaining > 0) {
-                delay(1000L)
-                remaining--
-                _uiState.update { it.copy(activityRemainingSeconds = remaining) }
+            timerJob = viewModelScope.launch {
+                while (remaining > 0) {
+                    delay(1000L)
+                    remaining--
+                    _uiState.update { it.copy(activityRemainingSeconds = remaining) }
+                }
+                _uiState.update {
+                    it.copy(
+                        isActivityTimerRunning = false,
+                        isActivityCompleted = true
+                    )
+                }
+                delay(600L)
+                _uiState.update { it.copy(currentStep = InterventionStep.AWARENESS_CARDS) }
+                startCardHoldTimer()
             }
-            // Verified completion!
-            _uiState.update {
-                it.copy(
-                    isActivityTimerRunning = false,
-                    isActivityCompleted = true
-                )
-            }
-            // Small pause for completion feedback before moving to reflection
-            delay(600L)
-            _uiState.update { it.copy(currentStep = InterventionStep.AWARENESS_CARDS) }
         }
     }
 
     fun onCancelActivityTimer() {
         timerJob?.cancel()
         timerJob = null
+        sensorJob?.cancel()
+        sensorJob = null
+        resetSensorManager?.stopListening()
+        val defaultDuration = _uiState.value.selectedActivity.durationSeconds
         _uiState.update {
             it.copy(
                 isActivityTimerRunning = false,
                 isActivityCompleted = false,
+                isPhoneFaceDown = false,
+                phoneRemovedNotice = null,
+                activityRemainingSeconds = defaultDuration,
                 currentStep = InterventionStep.RESET_SELECTION
             )
         }
@@ -225,12 +320,31 @@ class InterventionViewModel(
 
     // ==================== SCREEN 10: AWARENESS CARDS ACTIONS ====================
 
+    fun startCardHoldTimer() {
+        cardHoldJob?.cancel()
+        _uiState.update {
+            it.copy(
+                cardHoldRemainingSeconds = 2,
+                isCardHoldActive = true
+            )
+        }
+        cardHoldJob = viewModelScope.launch {
+            delay(1000L)
+            _uiState.update { it.copy(cardHoldRemainingSeconds = 1) }
+            delay(1000L)
+            _uiState.update { it.copy(cardHoldRemainingSeconds = 0, isCardHoldActive = false) }
+        }
+    }
+
     fun onNextCard() {
         val currentState = _uiState.value
+        if (currentState.isCardHoldActive) return // Enforce 2 seconds pause before next card/scroll!
+
         if (currentState.isLastCard) {
             onFinishAwarenessCards()
         } else {
             _uiState.update { it.copy(currentCardIndex = it.currentCardIndex + 1) }
+            startCardHoldTimer()
         }
     }
 
@@ -270,6 +384,7 @@ class InterventionViewModel(
             )
 
             result.onSuccess { session ->
+                onResetReelCount?.invoke()
                 _uiState.update {
                     it.copy(
                         isSubmittingUnlock = false,
@@ -341,6 +456,9 @@ class InterventionViewModel(
     override fun onCleared() {
         super.onCleared()
         timerJob?.cancel()
+        sensorJob?.cancel()
+        cardHoldJob?.cancel()
+        resetSensorManager?.stopListening()
     }
 
     companion object {
@@ -353,7 +471,10 @@ class InterventionViewModel(
             surfaceCategory: String,
             initialStep: InterventionStep = InterventionStep.BLOCKED_REEL,
             initialBatchAllowance: Int? = null,
-            initialBatchDurationMinutes: Int? = null
+            initialBatchDurationMinutes: Int? = null,
+            resetSensorManager: ResetSensorManager? = null,
+            onResetReelCount: (() -> Unit)? = null,
+            initialReelCount: Int? = null
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -364,7 +485,10 @@ class InterventionViewModel(
                     initialSurface = surfaceCategory,
                     initialStep = initialStep,
                     initialBatchAllowance = initialBatchAllowance,
-                    initialBatchDurationMinutes = initialBatchDurationMinutes
+                    initialBatchDurationMinutes = initialBatchDurationMinutes,
+                    resetSensorManager = resetSensorManager,
+                    onResetReelCount = onResetReelCount,
+                    initialReelCount = initialReelCount
                 ) as T
             }
         }

@@ -49,6 +49,8 @@ fun Screen09ResetActivity(
     selectedActivity: ResetActivityType,
     isTimerRunning: Boolean,
     remainingSeconds: Int,
+    isPhoneFaceDown: Boolean = false,
+    phoneRemovedNotice: String? = null,
     onSelectActivity: (ResetActivityType) -> Unit,
     onStartActivity: () -> Unit,
     onCancelActivity: () -> Unit,
@@ -66,6 +68,8 @@ fun Screen09ResetActivity(
             ResetActivityInProgress(
                 activity = selectedActivity,
                 remainingSeconds = remainingSeconds,
+                isPhoneFaceDown = isPhoneFaceDown,
+                phoneRemovedNotice = phoneRemovedNotice,
                 onCancel = onCancelActivity
             )
         } else {
@@ -290,6 +294,8 @@ private fun ActivityTile(
 private fun ResetActivityInProgress(
     activity: ResetActivityType,
     remainingSeconds: Int,
+    isPhoneFaceDown: Boolean,
+    phoneRemovedNotice: String?,
     onCancel: () -> Unit
 ) {
     val totalSeconds = activity.durationSeconds.coerceAtLeast(1)
@@ -333,21 +339,54 @@ private fun ResetActivityInProgress(
                 color = Color(0xFF191E21)
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            Text(
-                text = when (activity) {
-                    ResetActivityType.FLIP_PHONE -> "Place your phone face down and rest your eyes."
-                    ResetActivityType.SHORT_WALK -> "Stand up and walk a few steps without looking at a screen."
-                    ResetActivityType.MOVE_BODY -> "Do gentle movement to shake off tension."
-                    ResetActivityType.AWARENESS_CARDS -> "Read through reflective cards."
-                },
-                fontSize = 14.sp,
-                color = Color(0xFF5E605E),
-                modifier = Modifier.padding(horizontal = 24.dp)
-            )
+            // Guidance & Sensor Status
+            if (phoneRemovedNotice != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFFDE8E8))
+                        .border(1.dp, Color(0xFFF09595), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = phoneRemovedNotice,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFC53030)
+                    )
+                }
+            } else if (isPhoneFaceDown) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFE8F5E9))
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "✓ Phone is face down · Resting your eyes",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF2E7D32)
+                    )
+                }
+            } else {
+                Text(
+                    text = when (activity) {
+                        ResetActivityType.FLIP_PHONE -> "Place your phone face down on a flat surface to begin."
+                        ResetActivityType.SHORT_WALK -> "Place phone face down, stand up and take 200 steps."
+                        ResetActivityType.MOVE_BODY -> "Place phone face down and move your body."
+                        ResetActivityType.AWARENESS_CARDS -> "Read through reflective cards."
+                    },
+                    fontSize = 14.sp,
+                    color = Color(0xFF5E605E),
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+            }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(36.dp))
 
             // Circular Countdown Display
             Box(
@@ -370,7 +409,7 @@ private fun ResetActivityInProgress(
                         color = Color(0xFF191E21)
                     )
                     Text(
-                        text = "remaining",
+                        text = if (!isPhoneFaceDown) "waiting" else "remaining",
                         fontSize = 12.sp,
                         color = Color(0xFF7D807D)
                     )

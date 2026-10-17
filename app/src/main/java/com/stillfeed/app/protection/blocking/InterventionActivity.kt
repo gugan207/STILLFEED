@@ -57,6 +57,7 @@ class InterventionActivity : ComponentActivity() {
 
         val batchAllowance = intent.getIntExtra(EXTRA_BATCH_ALLOWANCE, 0).takeIf { it > 0 }
         val batchDurationMinutes = intent.getIntExtra(EXTRA_BATCH_DURATION_MINUTES, 0).takeIf { it > 0 }
+        val initialReelsCount = intent.getIntExtra(EXTRA_INITIAL_REELS_COUNT, -1).takeIf { it >= 0 }
 
         val app = application as? StillfeedApplication
 
@@ -71,7 +72,10 @@ class InterventionActivity : ComponentActivity() {
                             surfaceCategory = surfaceCategory,
                             initialStep = initialStep,
                             initialBatchAllowance = batchAllowance,
-                            initialBatchDurationMinutes = batchDurationMinutes
+                            initialBatchDurationMinutes = batchDurationMinutes,
+                            resetSensorManager = com.stillfeed.app.protection.sensor.ResetSensorManager(this@InterventionActivity),
+                            onResetReelCount = { it.instagramReelsTracker.resetCount() },
+                            initialReelCount = initialReelsCount
                         )
                     } ?: throw IllegalStateException("StillfeedApplication must be initialized.")
                 )
@@ -125,6 +129,8 @@ class InterventionActivity : ComponentActivity() {
                                 selectedActivity = uiState.selectedActivity,
                                 isTimerRunning = uiState.isActivityTimerRunning,
                                 remainingSeconds = uiState.activityRemainingSeconds,
+                                isPhoneFaceDown = uiState.isPhoneFaceDown,
+                                phoneRemovedNotice = uiState.phoneRemovedNotice,
                                 onSelectActivity = { vm.onSelectActivity(it) },
                                 onStartActivity = { vm.onStartSelectedActivity() },
                                 onCancelActivity = { vm.onCancelActivityTimer() }
@@ -136,6 +142,8 @@ class InterventionActivity : ComponentActivity() {
                                 cardIndex = uiState.currentCardIndex,
                                 totalCards = uiState.cards.size,
                                 isLastCard = uiState.isLastCard,
+                                cardHoldRemainingSeconds = uiState.cardHoldRemainingSeconds,
+                                isCardHoldActive = uiState.isCardHoldActive,
                                 onNextCard = { vm.onNextCard() },
                                 onFinishReflection = { vm.onFinishAwarenessCards() }
                             )
@@ -180,5 +188,6 @@ class InterventionActivity : ComponentActivity() {
         const val EXTRA_START_STEP = "extra_start_step"
         const val EXTRA_BATCH_ALLOWANCE = "extra_batch_allowance"
         const val EXTRA_BATCH_DURATION_MINUTES = "extra_batch_duration_minutes"
+        const val EXTRA_INITIAL_REELS_COUNT = "extra_initial_reels_count"
     }
 }

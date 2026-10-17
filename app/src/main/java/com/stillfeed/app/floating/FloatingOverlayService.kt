@@ -47,6 +47,8 @@ class FloatingOverlayService : Service() {
     private lateinit var positionManager: FloatingPositionManager
     private var overlayWidth: Int = 0
     private var overlayHeight: Int = 0
+    private var activeReelCount: Int? = null
+    private var isReelsActive: Boolean = false
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -91,6 +93,27 @@ class FloatingOverlayService : Service() {
             }
             ACTION_UPDATE_DATA -> {
                 // Triggered immediate state refresh
+                refreshData()
+                return START_STICKY
+            }
+            ACTION_SET_REELS_ACTIVE -> {
+                val active = intent.getBooleanExtra(EXTRA_REELS_ACTIVE, false)
+                isReelsActive = active
+                if (active) {
+                    startOverlay()
+                    companionView?.visibility = View.VISIBLE
+                    resetOverlayPosition()
+                    companionView?.resume()
+                    refreshData()
+                } else {
+                    companionView?.visibility = View.GONE
+                    companionView?.pause()
+                }
+                return START_STICKY
+            }
+            ACTION_UPDATE_REEL_COUNT -> {
+                val count = intent.getIntExtra(EXTRA_REEL_COUNT, 0)
+                activeReelCount = count
                 refreshData()
                 return START_STICKY
             }
@@ -144,7 +167,10 @@ class FloatingOverlayService : Service() {
 
             val view = FloatingCompanionView(this@FloatingOverlayService).apply {
                 onIconClickListener = {
-                    openStillfeedHome()
+                    openStillfeedResetOrHome()
+                }
+                if (!isReelsActive) {
+                    visibility = View.GONE
                 }
             }
             companionView = view
@@ -221,7 +247,7 @@ class FloatingOverlayService : Service() {
                         } else {
                             // Tapped: bounce and launch STILLFEED
                             companionView?.triggerTapBounce()
-                            openStillfeedHome()
+                            openStillfeedResetOrHome()
                         }
                         isDragging = false
                         return true
@@ -268,9 +294,9 @@ class FloatingOverlayService : Service() {
             val isProtection = protectionState?.isEnabled ?: true
             val isAnimations = prefs?.floatingCompanionAnimationsEnabled ?: true
 
-            // DATA HONESTY: Reel count is null when unmeasured, causing em-dash "—" display
+            // DATA HONESTY: Reel count uses measured activeReelCount, or null when unmeasured (showing "—")
             val (displayVal, progressRatio) = BrainMoodResolver.resolveDisplayAndProgress(
-                reelCount = null,
+                reelCount = activeReelCount,
                 monitoredMinutes = monitoredMinutes,
                 dailyAllowance = allowance
             )
@@ -306,6 +332,25 @@ class FloatingOverlayService : Service() {
                 wm.updateViewLayout(view, params)
                 positionManager.savePosition(defaultPos)
             } catch (_: Exception) {}
+        }
+    }
+
+    private fun openStillfeedResetOrHome() {
+        val app = application as StillfeedApplication
+        val currentCount = activeReelCount ?: app.instagramReelsTracker.getCurrentCount()
+
+        val launchIntent = Intent(this, com.stillfeed.app.protection.blocking.InterventionActivity::class.java).apply {
+            action = Intent.ACTION_VIEW
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(com.stillfeed.app.protection.blocking.InterventionActivity.EXTRA_BLOCKED_PACKAGE, "com.instagram.android")
+            putExtra(com.stillfeed.app.protection.blocking.InterventionActivity.EXTRA_SURFACE_CATEGORY, "Instagram Reels")
+            putExtra(com.stillfeed.app.protection.blocking.InterventionActivity.EXTRA_START_STEP, com.stillfeed.app.protection.intervention.ui.InterventionStep.RESET_SELECTION.name)
+            putExtra(com.stillfeed.app.protection.blocking.InterventionActivity.EXTRA_INITIAL_REELS_COUNT, currentCount)
+        }
+        try {
+            startActivity(launchIntent)
+        } catch (_: Exception) {
+            openStillfeedHome()
         }
     }
 
@@ -386,5 +431,9 @@ class FloatingOverlayService : Service() {
         const val ACTION_STOP = "com.stillfeed.app.floating.ACTION_STOP"
         const val ACTION_RESET_POSITION = "com.stillfeed.app.floating.ACTION_RESET_POSITION"
         const val ACTION_UPDATE_DATA = "com.stillfeed.app.floating.ACTION_UPDATE_DATA"
+        const val ACTION_SET_REELS_ACTIVE = "com.stillfeed.app.floating.ACTION_SET_REELS_ACTIVE"
+        const val EXTRA_REELS_ACTIVE = "extra_reels_active"
+        const val ACTION_UPDATE_REEL_COUNT = "com.stillfeed.app.floating.ACTION_UPDATE_REEL_COUNT"
+        const val EXTRA_REEL_COUNT = "extra_reel_count"
     }
 }

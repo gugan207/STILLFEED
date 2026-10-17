@@ -20,7 +20,9 @@ class FloatingIconController(
         val intent = Intent(context, FloatingOverlayService::class.java).apply {
             action = FloatingOverlayService.ACTION_START
         }
-        ContextCompat.startForegroundService(context, intent)
+        try {
+            ContextCompat.startForegroundService(context, intent)
+        } catch (_: Exception) {}
     }
 
     /**
@@ -30,7 +32,42 @@ class FloatingIconController(
         val intent = Intent(context, FloatingOverlayService::class.java).apply {
             action = FloatingOverlayService.ACTION_STOP
         }
-        context.startService(intent)
+        try {
+            context.startService(intent)
+        } catch (_: Exception) {}
+    }
+
+    /**
+     * Controls visibility of the floating companion specifically for Instagram Reels sessions.
+     * When Reels is open, shows the icon at top-center. When exited, hides the icon.
+     */
+    fun setReelsActive(active: Boolean) {
+        if (!overlayPermissionManager.hasOverlayPermission()) return
+
+        val intent = Intent(context, FloatingOverlayService::class.java).apply {
+            action = FloatingOverlayService.ACTION_SET_REELS_ACTIVE
+            putExtra(FloatingOverlayService.EXTRA_REELS_ACTIVE, active)
+        }
+        try {
+            if (active) {
+                ContextCompat.startForegroundService(context, intent)
+            } else {
+                context.startService(intent)
+            }
+        } catch (_: Exception) {}
+    }
+
+    /**
+     * Updates the calculated organic reel count on the floating icon in real time.
+     */
+    fun updateReelCount(count: Int) {
+        val intent = Intent(context, FloatingOverlayService::class.java).apply {
+            action = FloatingOverlayService.ACTION_UPDATE_REEL_COUNT
+            putExtra(FloatingOverlayService.EXTRA_REEL_COUNT, count)
+        }
+        try {
+            context.startService(intent)
+        } catch (_: Exception) {}
     }
 
     /**
@@ -40,7 +77,9 @@ class FloatingIconController(
         val intent = Intent(context, FloatingOverlayService::class.java).apply {
             action = FloatingOverlayService.ACTION_RESET_POSITION
         }
-        context.startService(intent)
+        try {
+            context.startService(intent)
+        } catch (_: Exception) {}
     }
 
     /**
@@ -50,6 +89,8 @@ class FloatingIconController(
         val intent = Intent(context, FloatingOverlayService::class.java).apply {
             action = FloatingOverlayService.ACTION_UPDATE_DATA
         }
-        context.startService(intent)
+        try {
+            context.startService(intent)
+        } catch (_: Exception) {}
     }
 }

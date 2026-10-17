@@ -61,6 +61,13 @@ class StillfeedAccessibilityService : AccessibilityService() {
         val packageName = event.packageName?.toString() ?: return
         if (packageName.isBlank()) return
 
+        val app = applicationContext as? StillfeedApplication
+
+        // If user is outside Instagram, notify companion controller to hide overlay
+        if (packageName != "com.instagram.android") {
+            app?.floatingIconController?.setReelsActive(false)
+        }
+
         // Fast rejection: Only process monitored apps (Instagram & YouTube)
         if (!MONITORED_PACKAGES.contains(packageName)) return
 
@@ -75,6 +82,18 @@ class StillfeedAccessibilityService : AccessibilityService() {
         }
 
         val windowContext = eventAdapter.extractWindowContext(event, rootNode)
+
+        // Evaluate Instagram Reels surface specifically
+        if (packageName == "com.instagram.android" && app != null) {
+            val isInstagramReels = com.stillfeed.app.protection.detection.InstagramSurfaceClassifier.REELS_IDENTIFIERS.any { signal ->
+                windowContext.hasViewIdContaining(signal) ||
+                        windowContext.hasTagContaining(signal) ||
+                        windowContext.rootClassName?.contains(signal, ignoreCase = true) == true
+            }
+
+            // Calculate organic Reels, filter sponsored ads, and toggle companion visibility
+            app.instagramReelsTracker.onAccessibilityEvent(event, rootNode, isInstagramReels)
+        }
 
         // Evaluate with domain protection engine
         val engine = protectionEngine ?: return
@@ -95,12 +114,15 @@ class StillfeedAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {
         eventDebouncer.reset()
+        (applicationContext as? StillfeedApplication)?.floatingIconController?.setReelsActive(false)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false
-        (applicationContext as? StillfeedApplication)?.widgetUpdateCoordinator?.requestUpdate()
+        val app = applicationContext as? StillfeedApplication
+        app?.floatingIconController?.setReelsActive(false)
+        app?.widgetUpdateCoordinator?.requestUpdate()
         serviceScope.cancel()
     }
 

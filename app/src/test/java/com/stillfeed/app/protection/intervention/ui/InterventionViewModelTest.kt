@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -120,20 +121,92 @@ class InterventionViewModelTest {
     }
 
     @Test
-    fun awarenessCardProgression_completesAndNavigatesToUnlock() {
+    fun awarenessCardProgression_completesAndNavigatesToUnlock() = runTest {
         viewModel.onChooseReset()
         viewModel.onSelectActivity(ResetActivityType.AWARENESS_CARDS)
         viewModel.onStartSelectedActivity()
 
-        // Advance through cards
+        // Advance through cards respecting the 2s hold
         val totalCards = viewModel.uiState.value.cards.size
         for (i in 0 until totalCards) {
+            advanceTimeBy(2100L)
             viewModel.onNextCard()
         }
 
         val state = viewModel.uiState.value
         assertTrue(state.isCardReflectionComplete)
         assertEquals(InterventionStep.UNLOCK_SELECTION, state.currentStep)
+    }
+
+    @Test
+    fun awarenessCards_enforces2SecondHoldBeforeAdvancing() = runTest {
+        viewModel.onChooseReset()
+        viewModel.onSelectActivity(ResetActivityType.AWARENESS_CARDS)
+        viewModel.onStartSelectedActivity()
+
+        var state = viewModel.uiState.value
+        assertTrue("Hold must be active upon entering cards", state.isCardHoldActive)
+        assertEquals(2, state.cardHoldRemainingSeconds)
+        assertEquals(0, state.currentCardIndex)
+
+        // Try to advance immediately during hold - must be ignored!
+        viewModel.onNextCard()
+        assertEquals("Index must not advance during hold", 0, viewModel.uiState.value.currentCardIndex)
+
+        // Advance 1 second - still blocked
+        advanceTimeBy(1000L)
+        runCurrent()
+        state = viewModel.uiState.value
+        assertTrue("Hold must still be active after 1s", state.isCardHoldActive)
+        assertEquals(1, state.cardHoldRemainingSeconds)
+        viewModel.onNextCard()
+        assertEquals(0, viewModel.uiState.value.currentCardIndex)
+
+        // Advance past 2 seconds - now unlocked
+        advanceTimeBy(1000L)
+        runCurrent()
+        state = viewModel.uiState.value
+        assertFalse("Hold must be released after 2s", state.isCardHoldActive)
+        assertEquals(0, state.cardHoldRemainingSeconds)
+
+        // Now advancing works
+        viewModel.onNextCard()
+        assertEquals(1, viewModel.uiState.value.currentCardIndex)
+    }
+
+    @Test
+    fun initialReelCount_initializesTodayReelsCount_andResetsOnUnlock() = runTest {
+        var resetCalled = false
+        val customVm = InterventionViewModel(
+            unlockSessionRepository = unlockRepository,
+            usageRepository = null,
+            initialPackage = "com.instagram.android",
+            initialSurface = "Reel",
+            initialStep = InterventionStep.RESET_SELECTION,
+            onResetReelCount = { resetCalled = true },
+            initialReelCount = 7
+        )
+
+        assertEquals(7, customVm.uiState.value.todayReelsCount)
+
+        // Complete reset activity
+        customVm.onSelectActivity(ResetActivityType.FLIP_PHONE)
+        customVm.onStartSelectedActivity()
+        advanceTimeBy(31_000L)
+        advanceUntilIdle()
+
+        // Advance awareness cards
+        for (i in 0 until customVm.uiState.value.cards.size) {
+            advanceTimeBy(2100L)
+            customVm.onNextCard()
+        }
+
+        // Confirm unlock
+        customVm.onConfirmUnlock()
+        advanceUntilIdle()
+
+        assertTrue("Unlock must succeed", customVm.uiState.value.isUnlockSuccessful)
+        assertTrue("Reel counter reset callback must be triggered on unlock", resetCalled)
     }
 
     @Test

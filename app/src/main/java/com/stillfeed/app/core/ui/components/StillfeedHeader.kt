@@ -19,12 +19,13 @@ import com.stillfeed.app.core.ui.theme.StillfeedTheme
  */
 @Composable
 fun StillfeedWordmark(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    color: androidx.compose.ui.graphics.Color = StillfeedTheme.colors.textPrimary
 ) {
     Text(
         text = "STILLFEED",
         style = StillfeedTheme.typography.brandWordmark,
-        color = StillfeedTheme.colors.textPrimary,
+        color = color,
         modifier = modifier
     )
 }

@@ -156,6 +156,10 @@ class StillfeedApplication : Application() {
         com.stillfeed.app.floating.FloatingIconController(this, overlayPermissionManager)
     }
 
+    val instagramReelsTracker: com.stillfeed.app.protection.accessibility.InstagramReelsTracker by lazy {
+        com.stillfeed.app.protection.accessibility.InstagramReelsTracker(floatingIconController)
+    }
+
     val pendingDeepLink = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     override fun onCreate() {
