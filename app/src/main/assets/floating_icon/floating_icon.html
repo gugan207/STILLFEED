@@ -45,17 +45,16 @@ html, body {
   position: relative;
   width: 360px;
   height: 220px;
-  max-width: 100%;
-  max-height: 100%;
-  border-radius: 60px;
+  transform: scale(var(--scale, 1));
+  transform-origin: center center;
   pointer-events: auto;
 }
 
 .float canvas {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  width: 360px;
+  height: 220px;
   display: block;
   pointer-events: none;
 }
@@ -165,8 +164,31 @@ html, body {
     $('#fbMouth').setAttribute('d', m.smile >= 0 ? 'M78 88q8 8 16 0' : 'M78 94q8 -8 16 0');
   }
 
+  function updateScale() {
+    try {
+      const w = window.innerWidth || document.documentElement.clientWidth || 360;
+      const h = window.innerHeight || document.documentElement.clientHeight || 220;
+      const s = Math.min(w / 360, h / 220);
+      document.documentElement.style.setProperty('--scale', s > 0 ? s : 1);
+    } catch (_) {}
+  }
+  window.addEventListener('resize', updateScale);
+  window.addEventListener('DOMContentLoaded', updateScale);
+  updateScale();
+
+  function setCount(n) {
+    if (typeof n === 'number') {
+      const pr = CONFIG.allowance > 0 ? (n / CONFIG.allowance) : 0;
+      const t = tierOf(n);
+      setCompanionData(n, pr, t);
+    } else {
+      setCompanionData(n, 0, 0);
+    }
+  }
+
   function setCompanionData(displayVal, progressRatio, forcedTier) {
     let newTier = 0;
+    const numVal = typeof displayVal === 'number' ? displayVal : parseInt(displayVal, 10);
     if (typeof forcedTier === 'number' && forcedTier >= 0 && forcedTier < MOODS.length) {
       newTier = forcedTier;
     } else if (typeof progressRatio === 'number' && progressRatio >= 0) {
@@ -175,10 +197,12 @@ html, body {
       else if (progressRatio >= 0.50) newTier = 2;
       else if (progressRatio >= 0.25) newTier = 1;
       else newTier = 0;
+    } else if (!isNaN(numVal)) {
+      newTier = tierOf(numVal);
     }
     const prev = tier;
     tier = newTier;
-    displayString = String(displayVal || "—");
+    displayString = isNaN(numVal) ? String(displayVal || "—") : String(numVal);
     paintUi();
     if (gl) gl.onDataChange(displayString, prev);
     if (prev >= 0 && tier !== prev) {
@@ -202,6 +226,7 @@ html, body {
 
   /* Exposed window API for Kotlin WebView integration */
   window.SkillfeedIcon = {
+    setCount,
     setCompanionData,
     triggerTap,
     setAnimationsEnabled: (enabled) => { reduced = !enabled; },

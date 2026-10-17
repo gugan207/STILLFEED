@@ -227,7 +227,7 @@ class InterventionViewModel(
                                     phoneRemovedNotice = null
                                 )
                             }
-                            if (timerJob?.isActive != true) {
+                            if (timerJob?.isActive != true && !_uiState.value.isActivityCompleted) {
                                 timerJob = viewModelScope.launch {
                                     resetSoundPlayer?.playTick()
                                     while (currentRemaining > 0) {
@@ -238,8 +238,10 @@ class InterventionViewModel(
                                             resetSoundPlayer?.playTick()
                                         }
                                     }
-                                    // Completed while face down!
+                                    // 30 seconds completed while face down!
                                     resetSoundPlayer?.playCompletion()
+                                    sensorJob?.cancel()
+                                    sensorJob = null
                                     resetSensorManager.stopListening()
                                     _uiState.update {
                                         it.copy(
@@ -247,13 +249,14 @@ class InterventionViewModel(
                                             isActivityCompleted = true
                                         )
                                     }
-                                    delay(600L)
-                                    _uiState.update { it.copy(currentStep = InterventionStep.AWARENESS_CARDS) }
-                                    startCardHoldTimer()
+                                    delay(400L)
+                                    // Redirect to the reels choosing screen (Screen 11 - Unlock Selection)
+                                    _uiState.update { it.copy(currentStep = InterventionStep.UNLOCK_SELECTION) }
                                 }
                             }
                         }
                         PhoneOrientationState.REMOVED_FROM_SURFACE -> {
+                            if (_uiState.value.isActivityCompleted) return@collect
                             // Rule: "if we remove the phone we need to start from first and as same as all activitys"
                             timerJob?.cancel()
                             timerJob = null
@@ -267,6 +270,7 @@ class InterventionViewModel(
                             }
                         }
                         else -> {
+                            if (_uiState.value.isActivityCompleted) return@collect
                             if (_uiState.value.isPhoneFaceDown) {
                                 timerJob?.cancel()
                                 timerJob = null
@@ -303,9 +307,9 @@ class InterventionViewModel(
                         isActivityCompleted = true
                     )
                 }
-                delay(600L)
-                _uiState.update { it.copy(currentStep = InterventionStep.AWARENESS_CARDS) }
-                startCardHoldTimer()
+                delay(400L)
+                // Redirect to the reels choosing screen (Screen 11 - Unlock Selection)
+                _uiState.update { it.copy(currentStep = InterventionStep.UNLOCK_SELECTION) }
             }
         }
     }

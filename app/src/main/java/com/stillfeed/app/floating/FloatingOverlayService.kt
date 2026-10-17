@@ -68,8 +68,8 @@ class FloatingOverlayService : Service() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         val density = resources.displayMetrics.density
-        overlayWidth = (180 * density).toInt()
-        overlayHeight = (110 * density).toInt()
+        overlayWidth = (200 * density).toInt()
+        overlayHeight = (122 * density).toInt()
 
         createNotificationChannel()
 
@@ -156,7 +156,8 @@ class FloatingOverlayService : Service() {
             overlayHeight,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                    WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START

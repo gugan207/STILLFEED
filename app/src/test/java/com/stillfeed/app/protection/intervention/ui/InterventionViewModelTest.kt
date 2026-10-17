@@ -91,7 +91,7 @@ class InterventionViewModelTest {
 
         state = viewModel.uiState.value
         assertTrue("Activity must be marked completed after timer finishes", state.isActivityCompleted)
-        assertEquals(InterventionStep.AWARENESS_CARDS, state.currentStep)
+        assertEquals(InterventionStep.UNLOCK_SELECTION, state.currentStep)
     }
 
     @Test

@@ -42,9 +42,9 @@ class FloatingCompanionView @JvmOverloads constructor(
     var onIconClickListener: (() -> Unit)? = null
 
     init {
-        // Fallback view is always added first at the base
+        // Fallback view is added as base, initially GONE so WebGL WebView renders unobstructed
         addView(fallbackView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-        fallbackView.visibility = View.VISIBLE
+        fallbackView.visibility = View.GONE
 
         setupWebView()
     }
@@ -53,7 +53,6 @@ class FloatingCompanionView @JvmOverloads constructor(
         try {
             val wv = WebView(context).apply {
                 setBackgroundColor(Color.TRANSPARENT)
-                setLayerType(View.LAYER_TYPE_HARDWARE, null)
                 isVerticalScrollBarEnabled = false
                 isHorizontalScrollBarEnabled = false
                 overScrollMode = View.OVER_SCROLL_NEVER
@@ -68,6 +67,16 @@ class FloatingCompanionView @JvmOverloads constructor(
                     cacheMode = WebSettings.LOAD_NO_CACHE
                 }
 
+                webChromeClient = object : android.webkit.WebChromeClient() {
+                    override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
+                        android.util.Log.d(
+                            "StillfeedCompanion",
+                            "JS: ${consoleMessage?.message()} (${consoleMessage?.sourceId()}:${consoleMessage?.lineNumber()})"
+                        )
+                        return true
+                    }
+                }
+
                 val bridge = FloatingCompanionJsBridge(
                     onMoodChanged = { moodId, _ ->
                         val resolved = BrainMood.fromId(moodId)
@@ -78,9 +87,11 @@ class FloatingCompanionView @JvmOverloads constructor(
                     },
                     onRendererReady = { isWebGL ->
                         isRendererReady = true
+                        android.util.Log.d("StillfeedCompanion", "onRendererReady received: isWebGL=$isWebGL")
                         if (isWebGL) {
                             fallbackView.visibility = View.GONE
                             this.visibility = View.VISIBLE
+                            bindState(currentState)
                         } else {
                             switchToFallback()
                         }
@@ -96,6 +107,7 @@ class FloatingCompanionView @JvmOverloads constructor(
                         error: WebResourceError?
                     ) {
                         super.onReceivedError(view, request, error)
+                        android.util.Log.e("StillfeedCompanion", "WebView error: ${error?.description}")
                         switchToFallback()
                     }
                 }
@@ -125,13 +137,15 @@ class FloatingCompanionView @JvmOverloads constructor(
         fallbackView.updateState(state)
 
         if (isRendererReady && !isUsingFallback) {
-            val script = "window.SkillfeedIcon && window.SkillfeedIcon.setCompanionData(" +
-                    "'${escapeJs(state.displayValue)}', " +
-                    "${state.progressRatio}, " +
-                    "${state.mood.ordinal});"
-            webView?.evaluateJavascript(script, null)
+            val countVal = state.displayValue.toIntOrNull()
+            val jsCall = if (countVal != null) {
+                "window.SkillfeedIcon && (window.SkillfeedIcon.setCount ? window.SkillfeedIcon.setCount($countVal) : window.SkillfeedIcon.setCompanionData($countVal, ${state.progressRatio}, ${state.mood.ordinal}));"
+            } else {
+                "window.SkillfeedIcon && window.SkillfeedIcon.setCompanionData('${escapeJs(state.displayValue)}', ${state.progressRatio}, ${state.mood.ordinal});"
+            }
+            webView?.evaluateJavascript(jsCall, null)
 
-            val animScript = "window.SkillfeedIcon && window.SkillfeedIcon.setAnimationsEnabled(${state.isAnimationsEnabled});"
+            val animScript = "window.SkillfeedIcon && window.SkillfeedIcon.setAnimationsEnabled && window.SkillfeedIcon.setAnimationsEnabled(${state.isAnimationsEnabled});"
             webView?.evaluateJavascript(animScript, null)
         }
     }
