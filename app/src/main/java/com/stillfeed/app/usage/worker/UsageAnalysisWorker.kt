@@ -42,6 +42,13 @@ class UsageAnalysisWorker(
                 // Fail-safe: awareness refresh failure must not crash or fail usage sync
             }
 
+            // Safely refresh home screen widgets with updated usage data
+            try {
+                app.widgetUpdateCoordinator.requestUpdate()
+            } catch (_: Exception) {
+                // Fail-safe: widget refresh failure must never affect worker execution
+            }
+
             when (result) {
                 is UsageSyncResult.Success -> Result.success()
                 is UsageSyncResult.PermissionMissing -> {

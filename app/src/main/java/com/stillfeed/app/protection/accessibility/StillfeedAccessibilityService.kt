@@ -52,6 +52,7 @@ class StillfeedAccessibilityService : AccessibilityService() {
         if (app != null && protectionEngine == null) {
             protectionEngine = app.protectionEngine
         }
+        app?.widgetUpdateCoordinator?.requestUpdate()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -99,6 +100,7 @@ class StillfeedAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false
+        (applicationContext as? StillfeedApplication)?.widgetUpdateCoordinator?.requestUpdate()
         serviceScope.cancel()
     }
 

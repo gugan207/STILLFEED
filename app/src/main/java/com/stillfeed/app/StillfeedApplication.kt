@@ -131,6 +131,19 @@ class StillfeedApplication : Application() {
         com.stillfeed.app.data.remote.supabase.SupabaseRemoteHistoryRepository(supabaseClient)
     }
 
+    val widgetDataRepository: com.stillfeed.app.widget.data.WidgetDataRepository by lazy {
+        com.stillfeed.app.widget.data.WidgetDataRepository(
+            usageAggregator = usageAggregator,
+            protectionStateRepository = protectionStateRepository,
+            appPreferencesRepository = appPreferencesRepository,
+            accessibilityPermissionChecker = accessibilityPermissionChecker
+        )
+    }
+
+    val widgetUpdateCoordinator: com.stillfeed.app.widget.update.WidgetUpdateCoordinator by lazy {
+        com.stillfeed.app.widget.update.WidgetUpdateCoordinator(this)
+    }
+
     val pendingDeepLink = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     override fun onCreate() {

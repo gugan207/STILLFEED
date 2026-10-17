@@ -80,6 +80,55 @@
             android:launchMode="singleTop"
             android:theme="@style/Theme.STILLFEED" />
 
+        <!-- STILLFEED Home Screen Widgets -->
+        <receiver
+            android:name=".widget.provider.StillfeedWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_name_dynamic">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_stillfeed_dynamic_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.provider.StillfeedCompactWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_name_compact">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_stillfeed_compact_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.provider.StillfeedMediumWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_name_medium">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_stillfeed_medium_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.provider.StillfeedLargeWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_name_large">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_stillfeed_large_info" />
+        </receiver>
+
     </application>
 
 </manifest>

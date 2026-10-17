@@ -7,4 +7,13 @@
     <color name="coral">#D8A5A1</color>
     <color name="sand_divider">#D9D4CA</color>
     <color name="dark_slate">#252A27</color>
+    
+    <!-- Widget Diurnal Background Colors (Figma Canvas 01 — Widgets) -->
+    <color name="widget_morning_bg">#FAF2D1</color>
+    <color name="widget_day_bg">#D3EFE8</color>
+    <color name="widget_afternoon_bg">#F9D6BF</color>
+    <color name="widget_evening_bg">#BAA3D8</color>
+    <color name="widget_night_bg">#112335</color>
+    <color name="widget_charcoal_text">#1A2121</color>
+    <color name="widget_night_text">#FAF7F0</color>
 </resources>

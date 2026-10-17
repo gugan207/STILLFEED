@@ -7,4 +7,23 @@
     <string name="intervention_subtitle">STILLFEED paused this short-form stream so you can stay intentional. DMs, Stories, and standard videos remain accessible.</string>
     <string name="intervention_button_return">Return</string>
     <string name="intervention_button_open_app">Open STILLFEED</string>
+
+    <!-- Widget Strings (Figma Canvas 01 — Widgets) -->
+    <string name="widget_name_dynamic">STILLFEED</string>
+    <string name="widget_desc_dynamic">Quiet attention companion that grows with your day.</string>
+    <string name="widget_name_compact">STILLFEED Compact</string>
+    <string name="widget_desc_compact">Compact daily attention companion and mindful check-in.</string>
+    <string name="widget_name_medium">STILLFEED Medium</string>
+    <string name="widget_desc_medium">Panoramic landscape view of your day and reels attention.</string>
+    <string name="widget_name_large">STILLFEED Large</string>
+    <string name="widget_desc_large">Editorial square reflection with full companion visual hierarchy.</string>
+    <string name="widget_reels_today">reels today</string>
+    <string name="widget_brand_title">Stillfeed</string>
+    <string name="widget_headline">Your attention is still yours.</string>
+    <string name="widget_msg_morning">Your mind looks fresh.</string>
+    <string name="widget_msg_day">Nice and slow. You’re doing well.</string>
+    <string name="widget_msg_afternoon">You’ve been here a while.</string>
+    <string name="widget_msg_evening">Take a breath. You can still reset.</string>
+    <string name="widget_msg_night">Rest well. You’ve done enough.</string>
+    <string name="widget_protection_paused">Protection paused · Tap to resume</string>
 </resources>
