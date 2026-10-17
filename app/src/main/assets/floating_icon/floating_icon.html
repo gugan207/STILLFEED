@@ -1,0 +1,804 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, maximum-scale=1">
+<title>STILLFEED Floating Companion</title>
+<style>
+@font-face {
+  font-family: 'Inter';
+  src: url('inter_bold.ttf') format('truetype');
+  font-weight: 500 800;
+  font-style: normal;
+}
+
+:root {
+  --count: #ffb15e;
+  --font: "Inter", system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  color: #eef1f2;
+  font-family: var(--font);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.float-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.float {
+  position: relative;
+  width: 360px;
+  height: 220px;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 60px;
+  pointer-events: auto;
+}
+
+.float canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+.glow {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 14px;
+  bottom: 30px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--glow, #ff9db5) 26%, transparent), rgba(0,0,0,0));
+  filter: blur(14px);
+  opacity: 0.9;
+  transition: background 1s;
+  pointer-events: none;
+}
+
+.shadow {
+  position: absolute;
+  left: 62px;
+  right: 62px;
+  bottom: 14px;
+  height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0,0,0,0.62), rgba(0,0,0,0));
+  filter: blur(3px);
+  pointer-events: none;
+  transform-origin: 50% 50%;
+}
+
+/* Flat SVG Fallback when WebGL is unavailable */
+.fb {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.fb svg {
+  width: 85%;
+  height: auto;
+  overflow: visible;
+}
+.fb text {
+  font-family: var(--font);
+  font-weight: 800;
+  font-size: 56px;
+}
+</style>
+</head>
+<body>
+
+<div class="float-wrap" id="wrap">
+  <div class="float" id="float" role="button" tabindex="0" aria-label="STILLFEED Floating Companion">
+    <i class="glow" id="glow"></i>
+    <i class="shadow" id="shadow"></i>
+    <canvas id="gl" width="720" height="440"></canvas>
+    <div class="fb" id="fb" hidden aria-hidden="true">
+      <svg viewBox="0 0 300 140">
+        <rect x="6" y="14" width="288" height="112" rx="56" fill="#2b1400"/>
+        <rect x="10" y="10" width="280" height="112" rx="56" id="fbPill" fill="#713a00"/>
+        <g id="fbBrain">
+          <ellipse cx="86" cy="68" rx="52" ry="42" fill="#ff9db5" stroke="#5a1f3a" stroke-width="5"/>
+          <circle cx="68" cy="68" r="11" fill="#08080c"/>
+          <circle cx="104" cy="68" r="11" fill="#08080c"/>
+          <circle cx="65" cy="64" r="4" fill="#fff"/>
+          <circle cx="101" cy="64" r="4" fill="#fff"/>
+          <path d="M78 88q8 8 16 0" stroke="#4a1d2c" stroke-width="4" fill="none" stroke-linecap="round" id="fbMouth"/>
+        </g>
+        <text x="214" y="86" text-anchor="middle" fill="#ffb15e" id="fbNum">—</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<script src="three.min.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  let reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const CONFIG = { allowance: 30, startCount: 0, maxCount: 99, canvas: [360, 220] };
+  const MOODS = [
+    { id: 'fresh', name: 'Fresh',    at: 0,    brain: '#ff9db5', pill: '#713a00', num: '#ffb15e', cover: 0,    slant: 0,    smile: 1,    open: 0.9,  tilt: 0,    squash: 1,    tear: 0, brow: 0, gaze: 0,    amp: 1,   blush: 1,   spark: 1,   zzz: 0, say: 'Your mind looks fresh.' },
+    { id: 'calm',  name: 'Calm',     at: 0.25, brain: '#f69ab3', pill: '#6c3a07', num: '#fab26a', cover: 0.12, slant: 0,    smile: 0.6,  open: 0.3,  tilt: 0.02, squash: 0.98, tear: 0, brow: 0, gaze: 0,    amp: 0.9, blush: 0.9, spark: 0.3, zzz: 0, say: 'Your companion looks calm.' },
+    { id: 'tired', name: 'Tired',    at: 0.5,  brain: '#e49ab0', pill: '#613a10', num: '#eeb078', cover: 0.4,  slant: 0.1,  smile: 0.05, open: 0,    tilt: 0.08, squash: 0.94, tear: 0, brow: 0, gaze: -0.5, amp: 0.7, blush: 0.6, spark: 0,   zzz: 0, say: 'Your companion looks tired.' },
+    { id: 'sad',   name: 'Sad',      at: 0.75, brain: '#c79bb9', pill: '#523a20', num: '#dba886', cover: 0.5,  slant: 0.4,  smile: -0.8, open: 0.2,  tilt: 0.16, squash: 0.9,  tear: 1, brow: 1, gaze: -1,   amp: 0.5, blush: 0.25, spark: 0,  zzz: 0, say: 'Your companion looks sad.' },
+    { id: 'worn',  name: 'Worn out', at: 1,    brain: '#a39ac0', pill: '#423a33', num: '#bda197', cover: 0.7,  slant: 0.55, smile: -1,   open: 0.35, tilt: 0.26, squash: 0.84, tear: 2, brow: 1, gaze: -1,   amp: 0.3, blush: 0,   spark: 0,   zzz: 1, say: 'Your companion is worn out. That is the limit for today.' }
+  ];
+
+  let displayString = "—";
+  let tier = 0;
+  let gl = null;
+  let tapKick = 0;
+  let isPaused = false;
+
+  function paintUi() {
+    const m = MOODS[tier] || MOODS[0];
+    $('#float').setAttribute('aria-label', displayString + '. ' + m.say);
+    $('#glow').style.setProperty('--glow', m.brain);
+    $('#fbNum').textContent = displayString;
+    $('#fbBrain').firstElementChild.setAttribute('fill', m.brain);
+    $('#fbPill').setAttribute('fill', m.pill);
+    $('#fbNum').setAttribute('fill', m.num);
+    $('#fbMouth').setAttribute('d', m.smile >= 0 ? 'M78 88q8 8 16 0' : 'M78 94q8 -8 16 0');
+  }
+
+  function setCompanionData(displayVal, progressRatio, forcedTier) {
+    let newTier = 0;
+    if (typeof forcedTier === 'number' && forcedTier >= 0 && forcedTier < MOODS.length) {
+      newTier = forcedTier;
+    } else if (typeof progressRatio === 'number' && progressRatio >= 0) {
+      if (progressRatio >= 1.0) newTier = 4;
+      else if (progressRatio >= 0.75) newTier = 3;
+      else if (progressRatio >= 0.50) newTier = 2;
+      else if (progressRatio >= 0.25) newTier = 1;
+      else newTier = 0;
+    }
+    const prev = tier;
+    tier = newTier;
+    displayString = String(displayVal || "—");
+    paintUi();
+    if (gl) gl.onDataChange(displayString, prev);
+    if (prev >= 0 && tier !== prev) {
+      if (window.AndroidBridge && window.AndroidBridge.notifyMoodChanged) {
+        window.AndroidBridge.notifyMoodChanged(MOODS[tier].id, MOODS[tier].name);
+      }
+    }
+  }
+
+  function triggerTap() {
+    tapKick = 1;
+    if (window.AndroidBridge && window.AndroidBridge.notifyIconClicked) {
+      window.AndroidBridge.notifyIconClicked();
+    }
+  }
+
+  const fl = $('#float');
+  fl.addEventListener('click', () => {
+    triggerTap();
+  });
+
+  /* Exposed window API for Kotlin WebView integration */
+  window.SkillfeedIcon = {
+    setCompanionData,
+    triggerTap,
+    setAnimationsEnabled: (enabled) => { reduced = !enabled; },
+    getMood: () => MOODS[tier].id,
+    pause: () => { isPaused = true; },
+    resume: () => {
+      if (isPaused) {
+        isPaused = false;
+        last = performance.now() / 1000;
+        requestAnimationFrame(loop);
+      }
+    },
+    get renderer() { return gl ? 'webgl' : 'fallback'; }
+  };
+  window.StillfeedIcon = window.SkillfeedIcon;
+
+  /* ===================================================================
+     3D Scene Rendering
+     =================================================================== */
+  const THREE = window.THREE;
+  const canvas = $('#gl');
+  let renderer = null;
+  const [W, H] = CONFIG.canvas;
+
+  if (THREE) {
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+    } catch (e) {
+      renderer = null;
+    }
+  }
+
+  if (!renderer) {
+    canvas.hidden = true;
+    $('#fb').hidden = false;
+    $('#shadow').hidden = true;
+    $('#glow').hidden = true;
+    if (window.AndroidBridge && window.AndroidBridge.notifyRendererReady) {
+      window.AndroidBridge.notifyRendererReady(false);
+    }
+    return;
+  }
+
+  let dpr = Math.min(window.devicePixelRatio || 1, 2);
+  renderer.setPixelRatio(dpr);
+  renderer.setSize(W, H, false);
+  renderer.setClearColor(0x000000, 0);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(28, W / H, 0.1, 50);
+  camera.position.set(0, 0.05, 7.4);
+
+  // Soft reflections for glossy eyes
+  const pm = new THREE.PMREMGenerator(renderer);
+  const envScene = new THREE.Scene();
+  envScene.background = new THREE.Color(0x2a2018);
+  [[8, 3, -3, 5, 4, 3, 0xffffff], [4, 4, 5, 1, 3, 1.6, 0xffd9b0], [10, 2, 0, -5, 2, 0.6, 0xaa7755]].forEach(([w, h, x, y, z, k, c]) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(k), side: THREE.DoubleSide }));
+    m.position.set(x, y, z);
+    m.lookAt(0, 0, 0);
+    envScene.add(m);
+  });
+  scene.environment = pm.fromScene(envScene, 0.04).texture;
+  scene.add(new THREE.AmbientLight(0xffffff, 0.34));
+  const key = new THREE.DirectionalLight(0xffffff, 0.46);
+  key.position.set(-2, 3, 6);
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0xffd0a8, 0.18);
+  rim.position.set(4, 1, -3);
+  scene.add(rim);
+
+  const root = new THREE.Group();
+  scene.add(root);
+
+  /* Cartoon materials */
+  const ramp = (() => {
+    const d = new Uint8Array([120, 175, 225, 255]);
+    const t = new THREE.DataTexture(d, 4, 1, THREE.LuminanceFormat);
+    t.minFilter = t.magFilter = THREE.NearestFilter;
+    t.generateMipmaps = false;
+    t.needsUpdate = true;
+    return t;
+  })();
+  const toon = (c) => new THREE.MeshToonMaterial({ color: c, gradientMap: ramp });
+  const outlineColor = new THREE.Color('#5a1f3a');
+  const outlineMat = new THREE.ShaderMaterial({
+    uniforms: { uT: { value: 0.05 }, uC: { value: outlineColor } },
+    side: THREE.BackSide,
+    vertexShader: 'uniform float uT; void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position + normal * uT, 1.0); }',
+    fragmentShader: 'uniform vec3 uC; void main(){ gl_FragColor = vec4(uC, 1.0); }'
+  });
+
+  /* Rounded pill */
+  const PW = 4.4, PH = 1.9, BEV = 0.12, DEPTH = 0.42, BT = 0.14;
+  const stadium = (w, h) => {
+    const r = h / 2, s = new THREE.Shape();
+    s.moveTo(0, -h / 2);
+    s.lineTo(w / 2 - r, -h / 2);
+    s.absarc(w / 2 - r, 0, r, -Math.PI / 2, Math.PI / 2, false);
+    s.lineTo(-w / 2 + r, h / 2);
+    s.absarc(-w / 2 + r, 0, r, Math.PI / 2, Math.PI * 1.5, false);
+    s.lineTo(0, -h / 2);
+    return s;
+  };
+  const FRONT = DEPTH / 2 + BT;
+  const pillSideMat = toon('#713a00');
+  const pillGeo = new THREE.ExtrudeGeometry(stadium(PW - 2 * BEV, PH - 2 * BEV), { depth: DEPTH, bevelEnabled: true, bevelThickness: BT, bevelSize: BEV, bevelSegments: 7, curveSegments: 56 });
+  pillGeo.translate(0, 0, -DEPTH / 2);
+  root.add(new THREE.Mesh(pillGeo, pillSideMat));
+
+  // Outline
+  const pillOutMat = new THREE.MeshBasicMaterial({ color: '#2b1400' });
+  const pillOut = new THREE.Mesh(new THREE.ExtrudeGeometry(stadium(PW + 0.1, PH + 0.1), { depth: DEPTH, bevelEnabled: true, bevelThickness: BT, bevelSize: BEV, bevelSegments: 7, curveSegments: 56 }), pillOutMat);
+  pillOut.position.z = -DEPTH / 2 - 0.07;
+  root.add(pillOut);
+
+  // Front face with soft shading
+  const frontGeo = new THREE.ShapeGeometry(stadium(PW - 0.02, PH - 0.02), 48);
+  {
+    const p = frontGeo.attributes.position, c = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) {
+      const t = (p.getY(i) / PH + 0.5), sh = Math.max(0, 1 - Math.hypot((p.getX(i) + 1.3) / 2.4, (p.getY(i) - 0.55) / 1.15)), v = 0.78 + 0.26 * t + 0.3 * sh * sh;
+      c[i * 3] = c[i * 3 + 1] = c[i * 3 + 2] = v;
+    }
+    frontGeo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  }
+  const pillFrontMat = new THREE.MeshBasicMaterial({ color: '#713a00', vertexColors: true });
+  const pillFront = new THREE.Mesh(frontGeo, pillFrontMat);
+  pillFront.position.z = FRONT + 0.002;
+  root.add(pillFront);
+
+  /* Brain Character */
+  const brainToon = toon('#ff9db5'), foldMat = toon('#e8708f'), lidToon = toon('#ff9db5');
+  const brainG = new THREE.Group();
+  brainG.position.set(-1.2, 0.02, FRONT + 0.03);
+  brainG.scale.setScalar(0.62);
+  root.add(brainG);
+  const body = new THREE.Group();
+  brainG.add(body);
+
+  const sphere = new THREE.SphereGeometry(1, 40, 30);
+  const RX = 0.76, RY = 0.82, RZ = 0.74, CX = 0.3, CY = 0.02;
+  const surfZ = (x, y, cx) => RZ * Math.sqrt(Math.max(0, 1 - ((x - cx) / RX) ** 2 - ((y - CY) / RY) ** 2));
+  const part = (cx, cy, cz, sx, sy, sz, thick) => {
+    const g = new THREE.Group();
+    g.position.set(cx, cy, cz);
+    g.scale.set(sx, sy, sz);
+    const m = new THREE.Mesh(sphere, brainToon);
+    g.add(m);
+    const o = new THREE.Mesh(sphere, outlineMat.clone());
+    o.material.uniforms.uT = { value: thick / ((sx + sy + sz) / 3) };
+    o.material.uniforms.uC = { value: outlineColor };
+    g.add(o);
+    body.add(g);
+    return g;
+  };
+
+  [-1, 1].forEach((s, si) => {
+    part(s * CX, CY, 0, RX, RY, RZ, 0.075);
+    const arcs = [-82, -52, -22, 10, 40, 70, 100], jit = [0.04, -0.12, 0.1, -0.06, 0.12, -0.02, 0.06], rad = [0.3, 0.28, 0.3, 0.27, 0.3, 0.28, 0.26];
+    arcs.forEach((a, i) => {
+      const t = a * Math.PI / 180, bx = s * CX + s * Math.cos(t) * RX * 0.97, by = CY + Math.sin(t) * RY * 0.97;
+      part(bx, by, jit[i] * (si ? 1 : -1) + 0.02, rad[i], rad[i], rad[i] * 0.95, 0.075);
+    });
+    part(s * (CX + 0.12), 0.76, 0.26, 0.24, 0.22, 0.22, 0.075);
+  });
+
+  // Squiggle folds
+  const tube = (pts, r) => {
+    const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 48, r, 6, false), foldMat);
+    body.add(m);
+    return m;
+  };
+  [-1, 1].forEach((s) => {
+    [[0.53, 0.05, 0.34, 0], [0.67, 0.045, 0.24, 1.7]].forEach(([y0, amp, half, ph]) => {
+      const pts = [];
+      for (let i = 0; i <= 16; i++) {
+        const t = i / 16, x = s * CX + (t - 0.5) * 2 * half, y = y0 + amp * Math.sin(t * 3 * Math.PI + ph);
+        pts.push(new THREE.Vector3(x, y, surfZ(x, y, s * CX) + 0.015));
+      }
+      tube(pts, 0.026);
+    });
+  });
+  {
+    const pts = [];
+    for (let i = 0; i <= 12; i++) {
+      const y = 0.16 + (i / 12) * 0.66, x = Math.sin(i * 0.9) * 0.012;
+      pts.push(new THREE.Vector3(x, y, RZ * Math.sqrt(Math.max(0, 1 - (CX / RX) ** 2 - ((y - CY) / RY) ** 2)) + 0.02));
+    }
+    tube(pts, 0.03);
+  }
+
+  // Face
+  const EZ = 0.7, EX = 0.33, EY = 0.1, ER = 0.29;
+  const eyeMat = new THREE.MeshPhysicalMaterial({ color: 0x07070a, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0, envMapIntensity: 1.4 });
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xfff4f0 });
+  const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const lidFade = document.createElement('canvas');
+  lidFade.width = 4;
+  lidFade.height = 64;
+  {
+    const c = lidFade.getContext('2d'), g = c.createLinearGradient(0, 0, 0, 64);
+    g.addColorStop(0, '#000');
+    g.addColorStop(0.38, '#000');
+    g.addColorStop(0.56, '#fff');
+    g.addColorStop(1, '#fff');
+    c.fillStyle = g;
+    c.fillRect(0, 0, 4, 64);
+  }
+  lidToon.alphaMap = new THREE.CanvasTexture(lidFade);
+  lidToon.transparent = true;
+  lidToon.depthWrite = false;
+  const browMat = new THREE.MeshBasicMaterial({ color: 0x7a2a4a });
+  const tearMat = new THREE.MeshBasicMaterial({ color: 0xa8dcff, transparent: true, opacity: 0.95, depthWrite: false });
+  const blushMat = new THREE.MeshBasicMaterial({ color: 0xff5f86, transparent: true, opacity: 0.5, depthWrite: false });
+  const eyes = [], lids = [], brows = [], tears = [], blushes = [];
+  [-1, 1].forEach((sx) => {
+    const g = new THREE.Group();
+    g.position.set(sx * EX, EY, EZ);
+    body.add(g);
+    const ring = new THREE.Mesh(new THREE.SphereGeometry(ER + 0.045, 32, 24), ringMat);
+    ring.scale.set(1, 1, 0.4);
+    g.add(ring);
+    const eye = new THREE.Group();
+    g.add(eye);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(ER, 40, 30), eyeMat);
+    ball.scale.set(1, 1, 0.6);
+    ball.position.z = 0.04;
+    eye.add(ball);
+    [[-0.085, 0.1, 0.17, 0.075], [0.085, -0.095, 0.16, 0.036], [0.11, 0.09, 0.15, 0.02]].forEach(([x, y, z, r]) => {
+      const h = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), hiMat);
+      h.position.set(x, y, z);
+      h.scale.z = 0.4;
+      eye.add(h);
+    });
+    const lid = new THREE.Mesh(new THREE.CircleGeometry(ER + 0.06, 48), lidToon);
+    lid.renderOrder = 3;
+    lid.position.set(0, 0.6, 0.2);
+    g.add(lid);
+    const brow = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), browMat);
+    brow.scale.set(1, 0.2, 0.3);
+    brow.position.set(sx * 0.02, 0.44, 0.16);
+    g.add(brow);
+    const tear = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 12), tearMat.clone());
+    tear.renderOrder = 4;
+    tear.scale.set(0.8, 1.35, 0.8);
+    tear.position.set(sx * 0.1, -0.24, 0.2);
+    g.add(tear);
+    const bl = new THREE.Mesh(new THREE.CircleGeometry(0.13, 24), blushMat);
+    bl.scale.set(1.25, 0.8, 1);
+    bl.position.set(sx * 0.5, -0.17, EZ - 0.06);
+    body.add(bl);
+    eyes.push({ g, eye });
+    lids.push({ lid, sx });
+    brows.push({ brow, sx });
+    tears.push({ tear, sx });
+    blushes.push(bl);
+  });
+
+  // Mouth
+  const MN = 14, MW = 0.21;
+  const mouthGeo = new THREE.BufferGeometry();
+  mouthGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((MN + 1) * 2 * 3), 3));
+  {
+    const idx = [];
+    for (let i = 0; i < MN; i++) {
+      const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
+      idx.push(a, b, c, b, d, c);
+    }
+    mouthGeo.setIndex(idx);
+  }
+  const mouthMat = new THREE.MeshBasicMaterial({ color: 0x4a1d2c, side: THREE.DoubleSide });
+  const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+  mouth.position.set(0, -0.2, EZ + 0.01);
+  body.add(mouth);
+  const tongue = new THREE.Mesh(new THREE.CircleGeometry(0.075, 20), new THREE.MeshBasicMaterial({ color: 0xff7a9a }));
+  tongue.renderOrder = 2;
+  tongue.position.z = 0.002;
+  mouth.add(tongue);
+
+  function shapeMouth(m, open) {
+    const p = mouthGeo.attributes.position;
+    for (let i = 0; i <= MN; i++) {
+      const x = -MW + (2 * MW * i) / MN, u = 1 - (x / MW) ** 2, yU = -m * 0.075 * u, th = 0.028 + open * 0.13 * u * (m >= 0 ? 1 : 0.55);
+      p.setXYZ(i * 2, x, yU, 0);
+      p.setXYZ(i * 2 + 1, x, yU - th, 0);
+    }
+    p.needsUpdate = true;
+    const th0 = 0.028 + open * 0.13;
+    tongue.visible = open > 0.5 && m > 0.3;
+    tongue.position.set(0, -m * 0.075 - th0 + 0.04, 0.002);
+    tongue.scale.set(1, 0.7 * Math.min(1, open), 1);
+  }
+
+  // Sparkles & Sleepy Zs
+  const star = document.createElement('canvas');
+  star.width = star.height = 64;
+  {
+    const c = star.getContext('2d');
+    c.fillStyle = '#fff6c8';
+    c.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4 - Math.PI / 2, r = i % 2 ? 7 : 28;
+      c.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r);
+    }
+    c.closePath();
+    c.fill();
+  }
+  const starTex = new THREE.CanvasTexture(star);
+  const sparks = [[-2.05, 0.95, 0.5], [-0.55, 0.9, 1.9], [-1.95, -0.7, 3.3]].map(([x, y, ph]) => {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex, transparent: true, depthWrite: false }));
+    s.position.set(x, y, FRONT + 0.7);
+    s.userData = { x, y, ph };
+    root.add(s);
+    return s;
+  });
+
+  const zc = document.createElement('canvas');
+  zc.width = zc.height = 96;
+  {
+    const c = zc.getContext('2d');
+    c.font = '800 80px Inter, system-ui, sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.lineJoin = 'round';
+    c.lineWidth = 12;
+    c.strokeStyle = '#1a2230';
+    c.strokeText('z', 48, 52);
+    c.fillStyle = '#cfd8ff';
+    c.fillText('z', 48, 52);
+  }
+  const zTex = new THREE.CanvasTexture(zc);
+  const zs = [0, 1, 2].map((i) => {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: zTex, transparent: true, depthWrite: false }));
+    s.userData = { i };
+    root.add(s);
+    return s;
+  });
+
+  /* Count text 3D extrusion */
+  const NC = 320, NH = 180;
+  const mkCanvas = () => { const c = document.createElement('canvas'); c.width = NC; c.height = NH; return c; };
+  const fillC = mkCanvas(), outC = mkCanvas();
+  const fillTex = new THREE.CanvasTexture(fillC), outTex = new THREE.CanvasTexture(outC);
+  fillTex.anisotropy = outTex.anisotropy = 4;
+
+  function drawNumber(textVal) {
+    const s = String(textVal);
+    let size = s.length > 2 ? 104 : 138;
+    const f = () => '800 ' + size + 'px Inter, system-ui, sans-serif';
+    const a = fillC.getContext('2d'), b = outC.getContext('2d');
+    a.font = f();
+    while (a.measureText(s).width > 250 && size > 60) {
+      size -= 6;
+      a.font = f();
+    }
+    [a, b].forEach((c) => {
+      c.clearRect(0, 0, NC, NH);
+      c.font = f();
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.lineJoin = 'round';
+    });
+    b.lineWidth = 26;
+    b.strokeStyle = '#fff';
+    b.strokeText(s, NC / 2, NH / 2 + 8);
+    b.fillStyle = '#fff';
+    b.fillText(s, NC / 2, NH / 2 + 8);
+    {
+      const g = a.createLinearGradient(0, NH * 0.18, 0, NH * 0.86);
+      g.addColorStop(0, '#fff');
+      g.addColorStop(1, '#d6d6d6');
+      a.fillStyle = g;
+    }
+    a.fillText(s, NC / 2, NH / 2 + 8);
+    fillTex.needsUpdate = outTex.needsUpdate = true;
+  }
+
+  const numG = new THREE.Group();
+  numG.position.set(1.2, -0.02, 0);
+  root.add(numG);
+  const numFront = new THREE.MeshBasicMaterial({ map: fillTex, transparent: true, color: 0xffb15e, alphaTest: 0.02 });
+  const numDeep = [];
+  const NUMW = 2.1, NUMH = NUMW * NH / NC;
+  for (let k = 0; k < 6; k++) {
+    const m = new THREE.MeshBasicMaterial({ map: outTex, transparent: true, color: 0x2b1400, alphaTest: 0.02 });
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(NUMW, NUMH), m);
+    p.position.z = FRONT + 0.012 - k * 0.014;
+    numG.add(p);
+    numDeep.push(m);
+  }
+  const numTop = new THREE.Mesh(new THREE.PlaneGeometry(NUMW, NUMH), numFront);
+  numTop.position.z = FRONT + 0.02;
+  numG.add(numTop);
+
+  /* State, tween, and draw */
+  const cur = {
+    cover: 0, slant: 0, smile: 1, open: 0.9, tilt: 0, squash: 1, tear: 0, brow: 0, gaze: 0, amp: 1, blush: 1, spark: 1, zzz: 0,
+    brain: new THREE.Color('#ff9db5'), pill: new THREE.Color('#713a00'), num: new THREE.Color('#ffb15e')
+  };
+  const tc = { brain: new THREE.Color(), pill: new THREE.Color(), num: new THREE.Color() };
+  const NUMERIC = ['cover', 'slant', 'smile', 'open', 'tilt', 'squash', 'tear', 'brow', 'gaze', 'amp', 'blush', 'spark', 'zzz'];
+  let shownCountStr = "";
+  let flip = 0, flipTo = null, nextBlink = 2.2, blinkT = -1;
+  const pop = { x: 0, v: 0 }, intro = { x: reduced ? 0 : -0.5, v: 0 };
+
+  function tween(snap) {
+    const m = MOODS[tier] || MOODS[0];
+    const k = snap || reduced ? 1 : 0.07;
+    NUMERIC.forEach((p) => { cur[p] += (m[p] - cur[p]) * k; });
+    tc.brain.set(m.brain);
+    tc.pill.set(m.pill);
+    tc.num.set(m.num);
+    cur.brain.lerp(tc.brain, k);
+    cur.pill.lerp(tc.pill, k);
+    cur.num.lerp(tc.num, k);
+  }
+
+  gl = {
+    onDataChange(strVal, prevTier) {
+      if (reduced) tween(true);
+      if (prevTier >= 0 && tier !== prevTier) {
+        pop.v = tier > prevTier ? -2.6 : 2.6;
+      }
+      if (shownCountStr === "" || reduced) {
+        drawNumber(strVal);
+        shownCountStr = strVal;
+        draw(0, 0.016);
+      } else {
+        flipTo = strVal;
+        flip = 1;
+        if (prevTier >= 0 && tier === prevTier) pop.v += 0.8;
+      }
+    }
+  };
+
+  let rx = 0, ry = 0, rz = 0;
+  const dark = new THREE.Color();
+
+  function draw(t, dt) {
+    const amp = cur.amp;
+    pop.v += (-pop.x * 70 - pop.v * 7) * dt;
+    pop.x += pop.v * dt;
+    intro.v += (-intro.x * 55 - intro.v * 7) * dt;
+    intro.x += intro.v * dt;
+
+    if (tapKick) {
+      pop.v += 2.4;
+      blinkT = 0;
+      tapKick = 0;
+    }
+
+    if (flip > 0) {
+      flip = Math.max(0, flip - dt / 0.42);
+      if (flip < 0.5 && flipTo !== null) {
+        drawNumber(flipTo);
+        shownCountStr = flipTo;
+        flipTo = null;
+      }
+      numG.scale.y = flip === 0 ? 1 : Math.max(0.001, Math.abs(Math.cos(flip * Math.PI)));
+    }
+
+    const tY = (reduced ? 0 : Math.sin(t * 0.9) * 0.12 * amp);
+    const tX = (reduced ? 0 : Math.cos(t * 1.1) * 0.06 * amp);
+    ry += (tY - ry) * 0.14;
+    rx += (tX - rx) * 0.14;
+    root.rotation.set(rx, ry, rz + (reduced ? 0 : Math.sin(t * 0.7) * 0.015 * amp));
+
+    const bob = reduced ? 0 : Math.sin(t * 1.25) * 0.07 * amp;
+    root.position.y = bob;
+
+    root.scale.set((1 - pop.x * 0.05) * (1 + intro.x), (1 + pop.x * 0.08) * (1 + intro.x), 1 + intro.x);
+    const sh = $('#shadow');
+    sh.style.transform = 'translateY(' + (bob * -40).toFixed(1) + 'px) scale(' + (1 - bob * 0.5).toFixed(3) + ')';
+
+    // Colours
+    pillSideMat.color.copy(cur.pill);
+    pillFrontMat.color.copy(cur.pill);
+    pillOutMat.color.copy(cur.pill).multiplyScalar(0.34);
+    brainToon.color.copy(cur.brain);
+    lidToon.color.copy(cur.brain);
+    foldMat.color.copy(cur.brain).multiplyScalar(0.8);
+    outlineColor.copy(cur.brain).multiplyScalar(0.36);
+    numFront.color.copy(cur.num);
+    dark.copy(cur.pill).multiplyScalar(0.3);
+    numDeep.forEach((m, k) => m.color.copy(dark).multiplyScalar(1 - k * 0.09));
+    blushMat.opacity = 0.5 * cur.blush;
+
+    // Body
+    const breathe = reduced ? 0 : Math.sin(t * 2.1) * 0.012 * amp;
+    body.scale.set(1 - breathe * 0.4, cur.squash + breathe, 1);
+    brainG.rotation.z = -cur.tilt + (reduced ? 0 : Math.sin(t * 0.8 + 1) * 0.02 * amp);
+    brainG.position.y = 0.02 - (1 - cur.squash) * 0.45 + (reduced ? 0 : Math.sin(t * 1.25 - 0.8) * 0.03 * amp);
+
+    // Eyes
+    if (!reduced) {
+      if (blinkT < 0 && t > nextBlink) {
+        blinkT = 0;
+        nextBlink = t + 2.2 + Math.random() * 3 + tier * 0.8;
+      }
+      if (blinkT >= 0) {
+        blinkT += dt;
+        if (blinkT > 0.16) blinkT = -1;
+      }
+    }
+    const blink = blinkT >= 0 ? Math.sin((blinkT / 0.16) * Math.PI) : 0;
+    const gx = 0, gy = cur.gaze * 0.05;
+    eyes.forEach(({ g, eye }) => {
+      eye.position.set(gx, gy, 0);
+      g.scale.set(1, 1 - 0.92 * blink, 1);
+    });
+    lids.forEach(({ lid, sx }) => {
+      lid.position.y = 0.64 - 0.66 * Math.min(1, cur.cover);
+      lid.rotation.z = -sx * cur.slant;
+      lid.visible = cur.cover > 0.16;
+    });
+    brows.forEach(({ brow, sx }) => {
+      brow.visible = cur.brow > 0.05;
+      brow.scale.set(cur.brow, 0.22 * cur.brow + 0.001, 0.3);
+      brow.rotation.z = -sx * (0.3 + cur.slant * 0.4);
+      brow.position.y = 0.44 - 0.07 * cur.cover;
+    });
+    blushes.forEach((b) => { b.visible = cur.blush > 0.05; });
+    shapeMouth(cur.smile, cur.open);
+    mouth.position.y = cur.smile >= 0 ? -0.2 : -0.25;
+
+    tears.forEach(({ tear }, i) => {
+      const on = cur.tear > (i === 0 ? 0.5 : 1.5), ph = (t * (cur.tear > 1.5 ? 0.55 : 0.4) + i * 0.5) % 1;
+      tear.visible = on;
+      tear.position.y = reduced ? -0.4 : -0.24 - ph * 0.6;
+      tear.material.opacity = on ? (reduced ? 0.95 : 0.95 * Math.sin(Math.min(1, ph * 1.1) * Math.PI)) : 0;
+    });
+
+    // Sparkles and Z's
+    sparks.forEach((s) => {
+      const ph = reduced ? 0.5 : (Math.sin(t * 2.4 + s.userData.ph) + 1) / 2;
+      s.visible = cur.spark > 0.05;
+      const k = 0.26 * (0.4 + 0.6 * ph) * cur.spark;
+      s.scale.set(k, k, 1);
+      s.material.opacity = 0.35 + 0.65 * ph;
+      s.position.y = s.userData.y + (reduced ? 0 : Math.sin(t + s.userData.ph) * 0.04);
+    });
+
+    zs.forEach((z, i) => {
+      const ph = reduced ? 0.3 + i * 0.3 : ((t * 0.32 + i / 3) % 1);
+      z.visible = cur.zzz > 0.05;
+      z.position.set(-1.05 + ph * 0.55, 0.88 + ph * 0.7, FRONT + 0.7);
+      const k = (0.22 + 0.16 * ph) * cur.zzz;
+      z.scale.set(k, k, 1);
+      z.material.opacity = Math.sin(ph * Math.PI) * cur.zzz;
+    });
+
+    renderer.render(scene, camera);
+  }
+
+  /* Loop */
+  let last = performance.now() / 1000;
+  let slow = 0, frames = 0;
+  function loop() {
+    if (isPaused) return;
+    const now = performance.now() / 1000, dt = Math.min(0.05, now - last);
+    last = now;
+    tween(false);
+    draw(now, dt);
+    frames++;
+    if (dt > 0.034) slow++;
+    if (frames === 90) {
+      if (slow > 30 && dpr > 1) {
+        dpr = 1;
+        renderer.setPixelRatio(1);
+        renderer.setSize(W, H, false);
+      }
+      frames = 0;
+      slow = 0;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // Initial draw
+  tween(true);
+  drawNumber(displayString);
+  shownCountStr = displayString;
+  draw(0, 0.016);
+  if (!reduced) {
+    requestAnimationFrame(loop);
+  }
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => {
+      drawNumber(displayString);
+      if (reduced) draw(0, 0.016);
+    });
+  }
+
+  if (window.AndroidBridge && window.AndroidBridge.notifyRendererReady) {
+    window.AndroidBridge.notifyRendererReady(true);
+  }
+})();
+</script>
+</body>
+</html>

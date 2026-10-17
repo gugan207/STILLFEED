@@ -138,7 +138,9 @@ fun StillfeedNavHost(
                 userRepository = it.userRepository,
                 accessibilityPermissionChecker = it.accessibilityPermissionChecker,
                 usageStatsDataSource = it.usageStatsDataSource,
-                dataExportService = it.dataExportService
+                dataExportService = it.dataExportService,
+                overlayPermissionChecker = { it.overlayPermissionManager.hasOverlayPermission() },
+                floatingIconController = it.floatingIconController
             )
         )
     }

@@ -144,6 +144,18 @@ class StillfeedApplication : Application() {
         com.stillfeed.app.widget.update.WidgetUpdateCoordinator(this)
     }
 
+    val overlayPermissionManager: com.stillfeed.app.floating.OverlayPermissionManager by lazy {
+        com.stillfeed.app.floating.OverlayPermissionManager(this)
+    }
+
+    val floatingPositionManager: com.stillfeed.app.floating.FloatingPositionManager by lazy {
+        com.stillfeed.app.floating.FloatingPositionManager(this, appPreferencesRepository)
+    }
+
+    val floatingIconController: com.stillfeed.app.floating.FloatingIconController by lazy {
+        com.stillfeed.app.floating.FloatingIconController(this, overlayPermissionManager)
+    }
+
     val pendingDeepLink = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     override fun onCreate() {

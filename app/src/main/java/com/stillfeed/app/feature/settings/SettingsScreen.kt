@@ -291,6 +291,136 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(StillfeedTheme.spacing.lg))
 
+            // FLOATING COMPANION (Step 22)
+            Text(
+                text = "FLOATING COMPANION",
+                style = StillfeedTheme.typography.label,
+                color = StillfeedTheme.colors.textSecondary
+            )
+            Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
+
+            StillfeedCard {
+                SettingToggleRow(
+                    title = "Floating companion",
+                    subtitle = "Shows your mindful 3D brain companion above apps",
+                    checked = uiState.floatingCompanionEnabled,
+                    onCheckedChange = { enable ->
+                        if (enable && !uiState.isOverlayPermissionGranted) {
+                            try {
+                                context.startActivity(
+                                    com.stillfeed.app.floating.OverlayPermissionManager(context)
+                                        .createRequestOverlayPermissionIntent()
+                                )
+                            } catch (_: Exception) {}
+                        }
+                        viewModel.setFloatingCompanionEnabled(enable)
+                    }
+                )
+
+                // Overlay Permission Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = StillfeedTheme.spacing.sm)
+                        .clickable(enabled = !uiState.isOverlayPermissionGranted) {
+                            try {
+                                context.startActivity(
+                                    com.stillfeed.app.floating.OverlayPermissionManager(context)
+                                        .createRequestOverlayPermissionIntent()
+                                )
+                            } catch (_: Exception) {}
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Overlay permission",
+                            style = StillfeedTheme.typography.titleSmall,
+                            color = StillfeedTheme.colors.textPrimary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (uiState.isOverlayPermissionGranted) {
+                                "Permission active · Can float over apps"
+                            } else {
+                                "Permission required · Tap to grant in settings"
+                            },
+                            style = StillfeedTheme.typography.caption,
+                            color = if (uiState.isOverlayPermissionGranted) {
+                                StillfeedTheme.colors.textSecondary
+                            } else {
+                                StillfeedTheme.colors.accent
+                            }
+                        )
+                    }
+                    Text(
+                        text = if (uiState.isOverlayPermissionGranted) "Granted" else "Grant",
+                        style = StillfeedTheme.typography.label,
+                        color = if (uiState.isOverlayPermissionGranted) {
+                            StillfeedTheme.colors.textSecondary
+                        } else {
+                            StillfeedTheme.colors.accent
+                        }
+                    )
+                }
+
+                if (uiState.floatingCompanionEnabled) {
+                    Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
+
+                    SettingToggleRow(
+                        title = "3D Companion animations",
+                        subtitle = "Smooth WebGL cartoon motion and expression blending",
+                        checked = uiState.floatingCompanionAnimationsEnabled,
+                        onCheckedChange = { anim ->
+                            viewModel.setFloatingCompanionAnimationsEnabled(anim)
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                viewModel.resetFloatingCompanionPosition()
+                            }
+                            .padding(vertical = StillfeedTheme.spacing.xs),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Reset position",
+                                style = StillfeedTheme.typography.titleSmall,
+                                color = StillfeedTheme.colors.textPrimary
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Reposition companion to default top-center",
+                                style = StillfeedTheme.typography.caption,
+                                color = StillfeedTheme.colors.textSecondary
+                            )
+                        }
+                        Text(
+                            text = "Reset",
+                            style = StillfeedTheme.typography.label,
+                            color = StillfeedTheme.colors.accent
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(StillfeedTheme.spacing.sm))
+
+                    Text(
+                        text = "Data Honesty: Reel counts display '—' when unmeasured to prevent metric fabrication. Mood stages adapt to your verified daily allowance.",
+                        style = StillfeedTheme.typography.caption,
+                        color = StillfeedTheme.colors.textSecondary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(StillfeedTheme.spacing.lg))
+
             // MORE SETTINGS (Screens 22, 23, 25, 26, 31, 32)
             Text(
                 text = "MORE SETTINGS",

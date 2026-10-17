@@ -6,6 +6,9 @@
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:name=".StillfeedApplication"
@@ -128,6 +131,16 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_stillfeed_large_info" />
         </receiver>
+
+        <!-- STILLFEED Floating Brain Companion Service -->
+        <service
+            android:name=".floating.FloatingOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Floating brain companion overlay displaying mindful usage and protection status above apps" />
+        </service>
 
     </application>
 

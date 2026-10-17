@@ -28,4 +28,8 @@ object AppPreferencesKeys {
     val NOTIF_WEEKLY_SUMMARY = booleanPreferencesKey("notif_weekly_summary")
     val NOTIF_ACTIVITY_REMINDERS = booleanPreferencesKey("notif_activity_reminders")
     val QUIET_HOURS_ENABLED = booleanPreferencesKey("quiet_hours_enabled")
+    val FLOATING_COMPANION_ENABLED = booleanPreferencesKey("floating_companion_enabled")
+    val FLOATING_COMPANION_ANIMATIONS_ENABLED = booleanPreferencesKey("floating_companion_animations_enabled")
+    val FLOATING_COMPANION_POS_X = intPreferencesKey("floating_companion_pos_x")
+    val FLOATING_COMPANION_POS_Y = intPreferencesKey("floating_companion_pos_y")
 }

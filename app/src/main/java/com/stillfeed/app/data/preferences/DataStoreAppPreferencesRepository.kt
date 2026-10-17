@@ -82,6 +82,10 @@ class DataStoreAppPreferencesRepository(
             preferences[AppPreferencesKeys.NOTIF_WEEKLY_SUMMARY] = updated.notifWeeklySummary
             preferences[AppPreferencesKeys.NOTIF_ACTIVITY_REMINDERS] = updated.notifActivityReminders
             preferences[AppPreferencesKeys.QUIET_HOURS_ENABLED] = updated.quietHoursEnabled
+            preferences[AppPreferencesKeys.FLOATING_COMPANION_ENABLED] = updated.floatingCompanionEnabled
+            preferences[AppPreferencesKeys.FLOATING_COMPANION_ANIMATIONS_ENABLED] = updated.floatingCompanionAnimationsEnabled
+            preferences[AppPreferencesKeys.FLOATING_COMPANION_POS_X] = updated.floatingCompanionPositionX
+            preferences[AppPreferencesKeys.FLOATING_COMPANION_POS_Y] = updated.floatingCompanionPositionY
         }
     }
 
@@ -108,7 +112,11 @@ class DataStoreAppPreferencesRepository(
             notifDailySummary = preferences[AppPreferencesKeys.NOTIF_DAILY_SUMMARY] ?: true,
             notifWeeklySummary = preferences[AppPreferencesKeys.NOTIF_WEEKLY_SUMMARY] ?: true,
             notifActivityReminders = preferences[AppPreferencesKeys.NOTIF_ACTIVITY_REMINDERS] ?: true,
-            quietHoursEnabled = preferences[AppPreferencesKeys.QUIET_HOURS_ENABLED] ?: true
+            quietHoursEnabled = preferences[AppPreferencesKeys.QUIET_HOURS_ENABLED] ?: true,
+            floatingCompanionEnabled = preferences[AppPreferencesKeys.FLOATING_COMPANION_ENABLED] ?: false,
+            floatingCompanionAnimationsEnabled = preferences[AppPreferencesKeys.FLOATING_COMPANION_ANIMATIONS_ENABLED] ?: true,
+            floatingCompanionPositionX = preferences[AppPreferencesKeys.FLOATING_COMPANION_POS_X] ?: -1,
+            floatingCompanionPositionY = preferences[AppPreferencesKeys.FLOATING_COMPANION_POS_Y] ?: -1
         )
     }
 }

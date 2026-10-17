@@ -43,6 +43,9 @@ data class SettingsUiState(
     val notifWeeklySummary: Boolean = true,
     val notifActivityReminders: Boolean = true,
     val quietHoursEnabled: Boolean = true,
+    val floatingCompanionEnabled: Boolean = false,
+    val floatingCompanionAnimationsEnabled: Boolean = true,
+    val isOverlayPermissionGranted: Boolean = false,
     val isExporting: Boolean = false,
     val exportJsonResult: String? = null,
     val isDeletingAccount: Boolean = false,
@@ -73,7 +76,9 @@ class SettingsViewModel(
     private val userRepository: UserRepository,
     private val accessibilityPermissionChecker: AccessibilityPermissionChecker?,
     private val usageStatsDataSource: UsageStatsDataSource?,
-    private val dataExportService: DataExportService
+    private val dataExportService: DataExportService,
+    private val overlayPermissionChecker: (() -> Boolean)? = null,
+    private val floatingIconController: com.stillfeed.app.floating.FloatingIconController? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState(isLoading = true))
@@ -102,7 +107,9 @@ class SettingsViewModel(
                         notifDailySummary = prefs.notifDailySummary,
                         notifWeeklySummary = prefs.notifWeeklySummary,
                         notifActivityReminders = prefs.notifActivityReminders,
-                        quietHoursEnabled = prefs.quietHoursEnabled
+                        quietHoursEnabled = prefs.quietHoursEnabled,
+                        floatingCompanionEnabled = prefs.floatingCompanionEnabled,
+                        floatingCompanionAnimationsEnabled = prefs.floatingCompanionAnimationsEnabled
                     )
                 }
             }
@@ -121,6 +128,7 @@ class SettingsViewModel(
 
                 val hasAccessibility = accessibilityPermissionChecker?.isAccessibilityPermissionGranted() ?: false
                 val hasUsageStats = usageStatsDataSource?.hasUsageStatsPermission() ?: false
+                val hasOverlay = overlayPermissionChecker?.invoke() ?: false
 
                 val monthId = awarenessManager.getCurrentMonthIdentifier(nowMillis)
                 val awarenessState = awarenessManager.getOrCreateMonthlyState(monthId, nowMillis)
@@ -131,6 +139,7 @@ class SettingsViewModel(
                         protectionEnabled = protectionState.isEnabled,
                         isAccessibilityPermissionGranted = hasAccessibility,
                         isUsageStatsPermissionGranted = hasUsageStats,
+                        isOverlayPermissionGranted = hasOverlay,
                         monthlyAwarenessState = awarenessState,
                         preferredThemeMode = prefs.preferredThemeMode,
                         currentUser = user,
@@ -141,6 +150,8 @@ class SettingsViewModel(
                         notifWeeklySummary = prefs.notifWeeklySummary,
                         notifActivityReminders = prefs.notifActivityReminders,
                         quietHoursEnabled = prefs.quietHoursEnabled,
+                        floatingCompanionEnabled = prefs.floatingCompanionEnabled,
+                        floatingCompanionAnimationsEnabled = prefs.floatingCompanionAnimationsEnabled,
                         errorMessage = null
                     )
                 }
@@ -156,11 +167,54 @@ class SettingsViewModel(
     fun refreshPermissions() {
         val hasAccessibility = accessibilityPermissionChecker?.isAccessibilityPermissionGranted() ?: false
         val hasUsageStats = usageStatsDataSource?.hasUsageStatsPermission() ?: false
+        val hasOverlay = overlayPermissionChecker?.invoke() ?: false
         _uiState.update {
             it.copy(
                 isAccessibilityPermissionGranted = hasAccessibility,
-                isUsageStatsPermissionGranted = hasUsageStats
+                isUsageStatsPermissionGranted = hasUsageStats,
+                isOverlayPermissionGranted = hasOverlay
             )
+        }
+    }
+
+    /**
+     * Toggles the floating brain companion overlay.
+     */
+    fun setFloatingCompanionEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            appPreferencesRepository.updatePreferences { it.copy(floatingCompanionEnabled = enabled) }
+            _uiState.update { it.copy(floatingCompanionEnabled = enabled) }
+            if (enabled) {
+                floatingIconController?.startCompanion()
+            } else {
+                floatingIconController?.stopCompanion()
+            }
+        }
+    }
+
+    /**
+     * Toggles floating companion animations / reduced motion.
+     */
+    fun setFloatingCompanionAnimationsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            appPreferencesRepository.updatePreferences { it.copy(floatingCompanionAnimationsEnabled = enabled) }
+            _uiState.update { it.copy(floatingCompanionAnimationsEnabled = enabled) }
+            floatingIconController?.requestUpdate()
+        }
+    }
+
+    /**
+     * Resets the floating companion position to the default top-centered location.
+     */
+    fun resetFloatingCompanionPosition() {
+        viewModelScope.launch {
+            appPreferencesRepository.updatePreferences {
+                it.copy(
+                    floatingCompanionPositionX = -1,
+                    floatingCompanionPositionY = -1
+                )
+            }
+            floatingIconController?.resetPosition()
         }
     }
 
@@ -363,7 +417,9 @@ class SettingsViewModel(
             userRepository: UserRepository,
             accessibilityPermissionChecker: AccessibilityPermissionChecker?,
             usageStatsDataSource: UsageStatsDataSource?,
-            dataExportService: DataExportService
+            dataExportService: DataExportService,
+            overlayPermissionChecker: (() -> Boolean)? = null,
+            floatingIconController: com.stillfeed.app.floating.FloatingIconController? = null
         ): androidx.lifecycle.ViewModelProvider.Factory = object : androidx.lifecycle.ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -378,7 +434,9 @@ class SettingsViewModel(
                     userRepository = userRepository,
                     accessibilityPermissionChecker = accessibilityPermissionChecker,
                     usageStatsDataSource = usageStatsDataSource,
-                    dataExportService = dataExportService
+                    dataExportService = dataExportService,
+                    overlayPermissionChecker = overlayPermissionChecker,
+                    floatingIconController = floatingIconController
                 ) as T
             }
         }
