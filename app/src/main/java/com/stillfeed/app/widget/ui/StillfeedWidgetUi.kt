@@ -233,7 +233,7 @@ private fun LargeWidgetOverlay(
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .padding(start = 18.dp, top = 16.dp, end = 18.dp, bottom = 18.dp)
+            .padding(start = 18.dp, top = 14.dp, end = 18.dp, bottom = 12.dp)
     ) {
         // Brand Row
         Row(
@@ -250,14 +250,14 @@ private fun LargeWidgetOverlay(
             )
         }
 
-        Spacer(modifier = GlanceModifier.height(14.dp))
+        Spacer(modifier = GlanceModifier.height(8.dp))
 
         // Editorial Headline
         Text(
             text = state.editorialHeadline,
             style = TextStyle(
                 color = textColor,
-                fontSize = 22.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             ),
             maxLines = 2
@@ -270,7 +270,7 @@ private fun LargeWidgetOverlay(
             text = state.displayCount,
             style = TextStyle(
                 color = textColor,
-                fontSize = 50.sp,
+                fontSize = 40.sp,
                 fontWeight = FontWeight.Bold
             )
         )
@@ -280,19 +280,19 @@ private fun LargeWidgetOverlay(
             text = "reels today",
             style = TextStyle(
                 color = textColor,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Medium
             )
         )
 
-        Spacer(modifier = GlanceModifier.height(8.dp))
+        Spacer(modifier = GlanceModifier.height(4.dp))
 
         // Mindful Message
         Text(
             text = state.editorialMessage,
             style = TextStyle(
                 color = textColor,
-                fontSize = 14.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Normal
             ),
             maxLines = 2
